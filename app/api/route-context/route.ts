@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
   ]);
 
   const response: RouteContextResponse = { terrainFeatures, elevationProfile };
-  await setCached(cacheKey, response, 86400);
+  const isLikelyFailure = terrainFeatures.length === 0 && elevationProfile.length === 0;
+  if (!isLikelyFailure) {
+    await setCached(cacheKey, response, 86400);
+  }
   return NextResponse.json(response);
 }
