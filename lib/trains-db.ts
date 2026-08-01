@@ -98,10 +98,22 @@ export const TRAINS_DB: TrainEntry[] = [
   { number: '12187', name: 'Jabalpur Garib Rath Express', from: 'Mumbai LTT', fromCode: 'LTT', to: 'Jabalpur', toCode: 'JBP' },
   { number: '12953', name: 'August Kranti Rajdhani Express', from: 'Mumbai Central', fromCode: 'MMCT', to: 'Hazrat Nizamuddin', toCode: 'NZM' },
   { number: '12954', name: 'August Kranti Rajdhani Express', from: 'Hazrat Nizamuddin', fromCode: 'NZM', to: 'Mumbai Central', toCode: 'MMCT' },
-  { number: '12005', name: 'Shatabdi Express', from: 'Pune Junction', fromCode: 'PUNE', to: 'Mumbai CST', toCode: 'CSMT' },
   { number: '12959', name: 'Dadar Shatabdi Express', from: 'Dadar', fromCode: 'DR', to: 'Ahmedabad', toCode: 'ADI' },
   { number: '15005', name: 'Rapti Sagar Express', from: 'Guwahati', fromCode: 'GHY', to: 'Delhi Anand Vihar', toCode: 'ANVT' },
   { number: '12595', name: 'Gorakhpur Express', from: 'Anand Vihar Terminal', fromCode: 'ANVT', to: 'Gorakhpur', toCode: 'GKP' },
+  // Punjab <-> Delhi / Bihar routes
+  { number: '12029', name: 'Amritsar Swarna Shatabdi Express', from: 'New Delhi', fromCode: 'NDLS', to: 'Amritsar Junction', toCode: 'ASR' },
+  { number: '12030', name: 'New Delhi Swarna Shatabdi Express', from: 'Amritsar Junction', fromCode: 'ASR', to: 'New Delhi', toCode: 'NDLS' },
+  { number: '14681', name: 'Shan-e-Punjab Express', from: 'New Delhi', fromCode: 'NDLS', to: 'Amritsar Junction', toCode: 'ASR' },
+  { number: '14682', name: 'Shan-e-Punjab Express', from: 'Amritsar Junction', fromCode: 'ASR', to: 'New Delhi', toCode: 'NDLS' },
+  { number: '12925', name: 'Paschim Express', from: 'Amritsar Junction', fromCode: 'ASR', to: 'Bandra Terminus', toCode: 'BDTS' },
+  { number: '12926', name: 'Paschim Express', from: 'Bandra Terminus', fromCode: 'BDTS', to: 'Amritsar Junction', toCode: 'ASR' },
+  { number: '13005', name: 'Amritsar Mail', from: 'Howrah Junction', fromCode: 'HWH', to: 'Amritsar Junction', toCode: 'ASR' },
+  { number: '13006', name: 'Amritsar Mail', from: 'Amritsar Junction', fromCode: 'ASR', to: 'Howrah Junction', toCode: 'HWH' },
+  { number: '12393', name: 'Sampoorna Kranti Express', from: 'Rajendra Nagar Terminal', fromCode: 'RJPB', to: 'New Delhi', toCode: 'NDLS' },
+  { number: '12394', name: 'Sampoorna Kranti Express', from: 'New Delhi', fromCode: 'NDLS', to: 'Rajendra Nagar Terminal', toCode: 'RJPB' },
+  { number: '12565', name: 'Bihar Sampark Kranti Express', from: 'Darbhanga Junction', fromCode: 'DBG', to: 'New Delhi', toCode: 'NDLS' },
+  { number: '12566', name: 'Bihar Sampark Kranti Express', from: 'New Delhi', fromCode: 'NDLS', to: 'Darbhanga Junction', toCode: 'DBG' },
 ];
 
 /**
