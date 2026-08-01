@@ -293,7 +293,7 @@ async function fetchRouteGeometry(trainNumber: string): Promise<[number, number]
 
 // ─── Fallback Journey Generator ──────────────────────────────────────────
 
-function generateFallbackJourney(trainNumber: string): LiveJourney | null {
+export function generateFallbackJourney(trainNumber: string): LiveJourney | null {
   const train = TRAINS_DB.find((t) => t.number === trainNumber) || {
     number: trainNumber,
     name: `Express Train #${trainNumber}`,
@@ -473,7 +473,8 @@ export async function getLiveJourney(trainNumber: string): Promise<LiveJourney |
       throw err;
     }
     console.warn(`[getLiveJourney] RailRadar API network error for train ${trainNumber}:`, err.message);
-    // Return generated fallback journey if server can't reach RailRadar API
-    return generateFallbackJourney(trainNumber);
+    // Do not silently substitute fabricated data for a transient failure;
+    // let the caller (route handler) fall back to last-known-good cache.
+    throw err;
   }
 }
