@@ -4,6 +4,13 @@ interface TrainMarkerProps {
   ghost?: boolean;
 }
 
+/**
+ * Top-down train silhouette (elongated capsule + nose + window strip), not a
+ * side-profile locomotive: a train can head any direction, and a side-view
+ * silhouette rotated to face east/south reads as an unrecognizable blob. An
+ * elongated top-down shape stays legible — and recognizably train-shaped —
+ * at every heading.
+ */
 export function TrainMarker({ heading, isMoving, ghost = false }: TrainMarkerProps) {
   return (
     <div className="relative flex h-11 w-11 items-center justify-center">
@@ -13,58 +20,24 @@ export function TrainMarker({ heading, isMoving, ghost = false }: TrainMarkerPro
       {ghost && (
         <span className="absolute inset-0 rounded-full border-2 border-dashed border-accent/50" />
       )}
-      {/* Side-profile locomotive drawn nose-up so heading rotation points along
-          travel direction. */}
       <svg
         viewBox="0 0 24 24"
         className={`relative h-9 w-9 drop-shadow-lg ${ghost ? 'opacity-60' : ''}`}
         style={{ transform: `rotate(${heading}deg)` }}
       >
-        {/* Cab / nose */}
+        {/* Body: rounded capsule, nose pointing up (travel direction) */}
         <path
-          d="M5.2 6.8 V3.6 L7 1.8 H17 L18.8 3.6 V6.8 Z"
+          d="M12 1.6 C15 1.6 16.6 3.6 16.6 6.4 V17.6 C16.6 20.2 14.7 21.9 12 21.9 C9.3 21.9 7.4 20.2 7.4 17.6 V6.4 C7.4 3.6 9 1.6 12 1.6 Z"
           fill="rgb(var(--accent))"
           stroke="white"
           strokeWidth="1.3"
           strokeLinejoin="round"
         />
-        {/* Body */}
-        <path
-          d="M3 6.8 H21 V14.2 Q21 15.7 19.6 15.7 H4.4 Q3 15.7 3 14.2 Z"
-          fill="rgb(var(--accent))"
-          stroke="white"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-        {/* Window */}
-        <rect x="6.4" y="8.4" width="11.2" height="3.1" rx="1.2" fill="white" opacity="0.92" />
-        {/* Headlight */}
-        <circle cx="17.2" cy="5.1" r="0.9" fill="white" opacity="0.9" />
-        {/* Skirt */}
-        <path
-          d="M4.6 15.7 H19.4 V17.5 H4.6 Z"
-          fill="rgb(var(--accent))"
-          stroke="white"
-          strokeWidth="1.1"
-          strokeLinejoin="round"
-        />
-        {/* Wheels */}
-        <circle
-          cx="8.7"
-          cy="19.5"
-          r="2.1"
-          fill="rgb(var(--accent))"
-          stroke="white"
-          strokeWidth="1.2"
-        />
-        <circle
-          cx="15.3"
-          cy="19.5"
-          r="2.1"
-          fill="rgb(var(--accent))"
-          stroke="white"
-          strokeWidth="1.2"
-        />
+        {/* Windshield */}
+        <path d="M12 3.4 C13.6 3.4 14.5 4.6 14.5 6.3 L14.5 8.1 H9.5 V6.3 C9.5 4.6 10.4 3.4 12 3.4 Z" fill="white" opacity="0.95" />
+        {/* Window strip */}
+        <rect x="9" y="10.4" width="6" height="7.6" rx="1.4" fill="white" opacity="0.55" />
+        <line x1="12" y1="10.4" x2="12" y2="18" stroke="rgb(var(--accent))" strokeWidth="0.8" opacity="0.6" />
       </svg>
     </div>
   );

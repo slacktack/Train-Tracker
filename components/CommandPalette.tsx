@@ -149,9 +149,20 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
         <div className="max-h-[46vh] overflow-y-auto p-1x">
           {loading && <p className="px-2x py-2x text-caption text-ink-muted">Searching…</p>}
           {!loading && results.length === 0 && (
-            <p className="px-2x py-2x text-caption text-ink-muted">
-              {query ? 'No trains found' : 'Type a train number or name'}
-            </p>
+            <div className="px-2x py-2x text-caption text-ink-muted">
+              {query ? (
+                <>
+                  <p>No match for &quot;{query}&quot;.</p>
+                  {!/^\d+$/.test(query.trim()) && (
+                    <p className="mt-0.5x">
+                      Name search only covers currently-running and popular trains — try its 5-digit train number instead.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p>Type a train number or name</p>
+              )}
+            </div>
           )}
           {results.map((r, i) => (
             <button

@@ -85,7 +85,6 @@ export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
   const markerRef = useRef<Marker | null>(null);
   const markerRootRef = useRef<Root | null>(null);
   const weatherMarkerRef = useRef<Marker | null>(null);
-  const dashTimerRef = useRef<number | null>(null);
   const journeyRef = useRef(journey);
   journeyRef.current = journey;
   const weatherRef = useRef(weather);
@@ -158,44 +157,27 @@ export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
               geometry: { type: 'LineString', coordinates: planned },
             },
           });
+          // A solid casing + core line reads as an actual track ahead, not a
+          // dashed "estimated" guess — the dashed marching-ants version was
+          // being misread as an approximation rather than the real route.
+          map.addLayer({
+            id: 'route-planned-casing',
+            type: 'line',
+            source: 'route-planned',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#0B1220', 'line-width': 5, 'line-opacity': 0.35 },
+          });
           map.addLayer({
             id: 'route-planned',
             type: 'line',
             source: 'route-planned',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
             paint: {
               'line-color': '#FFFFFF',
-              'line-width': 3,
-              'line-dasharray': [0.35, 1.85],
-              'line-opacity': 0.7,
+              'line-width': 2.5,
+              'line-opacity': 0.85,
             },
           });
-
-          // Marching-ants from a FIXED phase set: distinct line-dasharray
-          // values consume non-evicted slots in MapLibre's line atlas, so
-          // per-frame floats overflow it and crash setConstantDashPositions.
-          const DASH_PHASES = 8;
-          const DASH_PHASE_MS = 300;
-          let phaseIndex = 0;
-          const animateDashes = () => {
-            const m = mapRef.current;
-            if (!m || !m.getLayer('route-planned')) {
-              if (dashTimerRef.current !== null) {
-                clearInterval(dashTimerRef.current);
-                dashTimerRef.current = null;
-              }
-              return;
-            }
-            try {
-              phaseIndex = (phaseIndex + 1) % DASH_PHASES;
-              const fill = 0.3 + 1.2 * (phaseIndex / (DASH_PHASES - 1));
-              m.setPaintProperty('route-planned', 'line-dasharray', [fill, 2.1 - fill]);
-            } catch {
-              // Layout changes can race with map removal; never let the
-              // animation loop throw.
-            }
-          };
-          dashTimerRef.current = window.setInterval(animateDashes, DASH_PHASE_MS);
-          animateDashes();
         }
       }
 
@@ -268,7 +250,6 @@ export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
     });
 
     return () => {
-      if (dashTimerRef.current !== null) clearInterval(dashTimerRef.current);
       if (tweenFrameRef.current !== null) cancelAnimationFrame(tweenFrameRef.current);
       markerRef.current?.remove();
       weatherMarkerRef.current?.remove();

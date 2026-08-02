@@ -4,7 +4,9 @@ export const SNAP_HEIGHTS: Record<SheetSnapState, number> = {
   // 0.18 clipped 2-line-wrapped train names / stat values instead of showing
   // them in full; 0.23 gives peek room to show everything without an ellipsis.
   peek: 0.23,
-  half: 0.55,
+  // 0.55 read as "barely moved" on a single pull-up — 0.8 makes one tap/drag
+  // reveal nearly the full panel, matching what users expect from one gesture.
+  half: 0.8,
   full: 0.95,
 };
 

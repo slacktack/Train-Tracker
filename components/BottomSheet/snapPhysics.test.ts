@@ -4,8 +4,8 @@ import { resolveSnapState, SNAP_HEIGHTS } from './snapPhysics';
 describe('resolveSnapState', () => {
   it('snaps to nearest state with no fling', () => {
     expect(resolveSnapState(0.05, 0)).toBe('peek');
-    expect(resolveSnapState(0.4, 0)).toBe('half');
-    expect(resolveSnapState(0.85, 0)).toBe('full');
+    expect(resolveSnapState(0.6, 0)).toBe('half');
+    expect(resolveSnapState(0.9, 0)).toBe('full');
   });
 
   it('a fast downward fling drops one level from half', () => {

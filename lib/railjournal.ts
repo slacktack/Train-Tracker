@@ -991,6 +991,24 @@ export function generateFallbackJourney(trainNumber: string): LiveJourney | null
  * covers trains that aren't in the static DB and aren't running today (e.g.
  * 15651 LOHIT EXPRESS runs Mondays only).
  */
+/**
+ * Live-feed train names are heavily abbreviated ("LOHIT EXP", "SF" for
+ * Superfast) compared to how a rider actually types a search ("Lohit
+ * Express"). A single substring test on the whole phrase fails on almost
+ * any abbreviation. Instead: split the query into words and require every
+ * word to match some word in the name, where a match is either an exact
+ * substring OR a prefix relationship in either direction (covers
+ * "express" matching the name-word "exp", and "exp" matching "express").
+ */
+function nameMatchesQuery(name: string, query: string): boolean {
+  const nameWords = name.toLowerCase().split(/\s+/).filter(Boolean);
+  const queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (queryWords.length === 0) return false;
+  return queryWords.every((qw) =>
+    nameWords.some((nw) => nw.includes(qw) || qw.startsWith(nw) || nw.startsWith(qw))
+  );
+}
+
 export async function searchTrains(query: string): Promise<SearchResult[]> {
   const q = query.trim();
   const local = searchLocalTrains(q).map((t) => ({
@@ -1005,9 +1023,7 @@ export async function searchTrains(query: string): Promise<SearchResult[]> {
 
   const feed = await getActiveTrains().catch(() => []);
   const matches = feed.filter(
-    (t) =>
-      t.train_no.startsWith(q) ||
-      (t.train_name ?? '').toLowerCase().includes(q.toLowerCase())
+    (t) => t.train_no.startsWith(q) || nameMatchesQuery(t.train_name ?? '', q)
   );
   const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
   if (matches.length > 0) {
