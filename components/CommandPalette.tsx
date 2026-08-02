@@ -130,9 +130,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search train number or name…"
+            placeholder="Search train, number, or city…"
             className="w-full bg-transparent text-body text-ink outline-none placeholder:text-ink-muted/50"
-            aria-label="Search trains by number or name"
+            aria-label="Search trains by number, name, or city"
           />
           <kbd className="hidden shrink-0 rounded-md border border-ink/10 bg-surface-raised px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted sm:inline-block">
             ESC
@@ -155,12 +155,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
                   <p>No match for &quot;{query}&quot;.</p>
                   {!/^\d+$/.test(query.trim()) && (
                     <p className="mt-0.5x">
-                      Name search only covers currently-running and popular trains — try its 5-digit train number instead.
+                      Name/city search only covers currently-running and popular trains — try its 5-digit train number instead.
                     </p>
                   )}
                 </>
               ) : (
-                <p>Type a train number or name</p>
+                <p>Type a train number, name, or city</p>
               )}
             </div>
           )}
@@ -182,6 +182,20 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
                 {r.origin.name && r.destination.name && (
                   <span className="block break-words text-caption text-ink-muted">
                     {r.origin.name} → {r.destination.name}
+                  </span>
+                )}
+                {r.liveNote && (
+                  <span
+                    className={cn(
+                      'mt-0.5x inline-block text-label normal-case tracking-normal',
+                      r.liveNote.startsWith('Running')
+                        ? 'text-status-onTime'
+                        : r.liveNote.startsWith('Not running') || r.liveNote === 'Not currently running'
+                          ? 'text-ink-muted'
+                          : 'text-accent'
+                    )}
+                  >
+                    {r.liveNote}
                   </span>
                 )}
               </span>

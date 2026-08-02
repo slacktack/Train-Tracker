@@ -24,6 +24,8 @@ export interface SearchResult {
   duration?: string;
   departureTime?: string;
   arrivalTime?: string;
+  /** Short human-readable running status, e.g. "Running · 82 km/h", "At station", "Not running today" — disambiguates same-named trains before you tap in. */
+  liveNote?: string;
 }
 
 export interface LiveLocation {

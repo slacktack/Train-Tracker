@@ -190,7 +190,7 @@ export default function HomePage() {
             className="flex h-9 min-w-0 flex-1 items-center gap-1.5x rounded-pill border border-ink/10 bg-surface-raised/60 px-2x text-body text-ink-muted transition-colors hover:border-ink/25 hover:text-ink"
           >
             <Search className="h-4 w-4 shrink-0" aria-hidden />
-            <span className="flex-1 text-left">Search train number or name</span>
+            <span className="flex-1 text-left">Search train, number, or city</span>
             <kbd className="hidden rounded-md border border-ink-muted/20 bg-surface-raised/60 px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted sm:inline-block">
               ⌘K
             </kbd>

@@ -1022,27 +1022,61 @@ function nameMatchesQuery(name: string, query: string): boolean {
   const queryWords = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (queryWords.length === 0) return false;
   return queryWords.every((qw) =>
-    nameWords.some((nw) => nw.includes(qw) || qw.startsWith(nw) || nw.startsWith(qw))
+    nameWords.some((nw) => {
+      if (nw.includes(qw)) return true;
+      // Abbreviation prefix match in either direction ("exp" <-> "express"),
+      // but only once both sides are long enough to be a real word/abbreviation
+      // — otherwise a single-letter initial ("M" in "M G R ...") trivially
+      // prefix-matches almost any query.
+      if (qw.length >= 3 && nw.length >= 2 && qw.startsWith(nw)) return true;
+      if (nw.length >= 3 && qw.length >= 2 && nw.startsWith(qw)) return true;
+      return false;
+    })
   );
+}
+
+/**
+ * Same-named trains (an "up" and "down" service, or one running today vs
+ * one that hasn't started yet) are otherwise indistinguishable in a result
+ * list until you tap in. Derive a short status from the one thing the feed
+ * actually tells us: source (GPS = confirmed moving), speed, and whether
+ * the feed's start_date is today at all — a stale/future entry means it
+ * isn't really "live" right now regardless of what its GPS blip suggests.
+ */
+function describeLiveNote(t: ActiveTrain, todayPrefix: string): string {
+  const isToday = !t.start_date || t.start_date.startsWith(todayPrefix);
+  if (!isToday) return `Not running today (started ${t.start_date})`;
+  if (t.source === 'GPS' && (t.speedKmh ?? 0) > 0) return `Running · ${Math.round(t.speedKmh ?? 0)} km/h`;
+  if (t.source === 'GPS') return 'Running · stopped';
+  return t.station_name ? `At ${t.station_name.replace(/\s+/g, ' ').trim()}` : 'At station';
 }
 
 export async function searchTrains(query: string): Promise<SearchResult[]> {
   const q = query.trim();
-  const local = searchLocalTrains(q).map((t) => ({
-    id: t.number,
-    number: t.number,
-    name: t.name,
-    origin: { code: t.fromCode, name: t.from },
-    destination: { code: t.toCode, name: t.to },
-  }));
+  const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
+  // todayInIST() returns "DD-Mmm-YYYY"; the feed's start_date is "DD Mon" (space-separated).
+  const todayPrefix = todayInIST().split('-').slice(0, 2).join(' ');
 
-  if (local.length > 0) return local;
+  const local = searchLocalTrains(q);
+  if (local.length > 0) {
+    const feedForLocal = await getActiveTrains().catch(() => []);
+    return local.map((t) => {
+      const live = feedForLocal.find((f) => f.train_no === t.number);
+      return {
+        id: t.number,
+        number: t.number,
+        name: t.name,
+        origin: { code: t.fromCode, name: t.from },
+        destination: { code: t.toCode, name: t.to },
+        liveNote: live ? describeLiveNote(live, todayPrefix) : 'Not currently running',
+      };
+    });
+  }
 
   const feed = await getActiveTrains().catch(() => []);
   const matches = feed.filter(
     (t) => t.train_no.startsWith(q) || nameMatchesQuery(t.train_name ?? '', q)
   );
-  const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
   if (matches.length > 0) {
     return matches.slice(0, 15).map((t) => ({
       id: t.train_no,
@@ -1050,6 +1084,24 @@ export async function searchTrains(query: string): Promise<SearchResult[]> {
       name: clean(t.train_name ?? t.train_no),
       origin: { code: t.station_code ?? '', name: clean(t.station_name ?? '') },
       destination: { code: '', name: '' },
+      liveNote: describeLiveNote(t, todayPrefix),
+    }));
+  }
+
+  // No train matched by number/name — try it as a city/station name instead,
+  // surfacing trains currently at or passing through there. This only covers
+  // a train's *current* position (from the live feed), not its full
+  // timetable, so a train that will reach this city later today won't show
+  // up yet — there's no full-route database to check every stop against.
+  const cityMatches = feed.filter((t) => t.station_name && nameMatchesQuery(t.station_name, q));
+  if (cityMatches.length > 0) {
+    return cityMatches.slice(0, 20).map((t) => ({
+      id: t.train_no,
+      number: t.train_no,
+      name: clean(t.train_name ?? t.train_no),
+      origin: { code: t.station_code ?? '', name: clean(t.station_name ?? '') },
+      destination: { code: '', name: '' },
+      liveNote: describeLiveNote(t, todayPrefix),
     }));
   }
 
@@ -1060,6 +1112,7 @@ export async function searchTrains(query: string): Promise<SearchResult[]> {
       const last = schedule.stationList[schedule.stationList.length - 1];
       const dep = first?.departureTime && first.departureTime !== '--' ? first.departureTime : undefined;
       const arr = last?.arrivalTime && last.arrivalTime !== '--' ? last.arrivalTime : undefined;
+      const liveMatch = feed.find((f) => f.train_no === schedule.trainNumber);
       return [
         {
           id: schedule.trainNumber,
@@ -1071,6 +1124,7 @@ export async function searchTrains(query: string): Promise<SearchResult[]> {
           duration: schedule.duration || undefined,
           departureTime: dep,
           arrivalTime: arr,
+          liveNote: liveMatch ? describeLiveNote(liveMatch, todayPrefix) : 'Not currently running',
         },
       ];
     }
