@@ -3,6 +3,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { LiveJourney, LiveLocation, SearchResult, Station } from '@/types/train';
 import { searchLocalTrains, TRAINS_DB } from '@/lib/trains-db';
+import { getCached, setCached } from '@/lib/redis-cache';
 import {
   CoachChart,
   CoachEntry,
@@ -444,6 +445,13 @@ function mergeSampledSpeeds(trains: ActiveTrain[]): void {
 
 let feedCache: { trains: ActiveTrain[]; timestamp: string; fetchedAt: number } | null = null;
 let feedIsStale = false;
+// In-memory feedCache resets per serverless instance — a fresh Vercel
+// instance whose first upstream attempt fails has no stale snapshot to fall
+// back to and hard-fails, even though a perfectly good one exists on other
+// instances. Backing the stale-while-error fallback with Redis lets a cold
+// instance recover from the same snapshot the rest of the fleet already has.
+const REDIS_FEED_KEY = 'active-trains:last-good';
+const REDIS_FEED_TTL_S = 10 * 60;
 
 export function isFeedStale(): boolean {
   return feedIsStale;
@@ -497,6 +505,7 @@ export async function getActiveTrains(force = false): Promise<ActiveTrain[]> {
       feedIsStale = false;
       // Background rotation — never block the feed response on authed calls.
       void runSpeedSampler(trains);
+      void setCached(REDIS_FEED_KEY, trains, REDIS_FEED_TTL_S);
       return trains;
     } catch {
       // try next fallback source
@@ -507,6 +516,14 @@ export async function getActiveTrains(force = false): Promise<ActiveTrain[]> {
     feedIsStale = true;
     return feedCache.trains;
   }
+
+  const lastGood = await getCached<ActiveTrain[]>(REDIS_FEED_KEY).catch(() => null);
+  if (lastGood && lastGood.length > 0) {
+    feedIsStale = true;
+    feedCache = { trains: lastGood, timestamp: new Date().toISOString(), fetchedAt: Date.now() };
+    return lastGood;
+  }
+
   throw new Error('railjournal: active trains feed failed');
 }
 

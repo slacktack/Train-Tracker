@@ -71,7 +71,10 @@ export function BottomSheet({ peek, half }: BottomSheetProps) {
       >
         <span className="h-1.5 w-12 rounded-pill bg-ink-muted/50" aria-hidden />
       </button>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3x pb-[calc(env(safe-area-inset-bottom)+24px)]">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3x pb-[calc(env(safe-area-inset-bottom)+24px)]"
+        style={{ touchAction: 'pan-y' }}
+      >
         {peek}
         {/* Always mounted (not conditional on sheetState) so expanding the
             sheet doesn't pay a first-mount delay — it's simply revealed. */}

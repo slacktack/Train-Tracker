@@ -9,7 +9,8 @@ interface TrainMarkerProps {
  * side-profile locomotive: a train can head any direction, and a side-view
  * silhouette rotated to face east/south reads as an unrecognizable blob. An
  * elongated top-down shape stays legible — and recognizably train-shaped —
- * at every heading.
+ * at every heading. A light-cone ahead of the nose makes the travel
+ * direction readable at a glance, not just inferable from the rotation.
  */
 export function TrainMarker({ heading, isMoving, ghost = false }: TrainMarkerProps) {
   return (
@@ -22,9 +23,17 @@ export function TrainMarker({ heading, isMoving, ghost = false }: TrainMarkerPro
       )}
       <svg
         viewBox="0 0 24 24"
-        className={`relative h-9 w-9 drop-shadow-lg ${ghost ? 'opacity-60' : ''}`}
+        className={`relative h-9 w-9 overflow-visible drop-shadow-lg ${ghost ? 'opacity-60' : ''}`}
         style={{ transform: `rotate(${heading}deg)` }}
       >
+        <defs>
+          <linearGradient id="train-marker-beam" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="rgb(var(--accent))" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="rgb(var(--accent))" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* Direction beam ahead of the nose */}
+        {!ghost && <path d="M8.4 1.6 L15.6 1.6 L12 -6.5 Z" fill="url(#train-marker-beam)" />}
         {/* Body: rounded capsule, nose pointing up (travel direction) */}
         <path
           d="M12 1.6 C15 1.6 16.6 3.6 16.6 6.4 V17.6 C16.6 20.2 14.7 21.9 12 21.9 C9.3 21.9 7.4 20.2 7.4 17.6 V6.4 C7.4 3.6 9 1.6 12 1.6 Z"

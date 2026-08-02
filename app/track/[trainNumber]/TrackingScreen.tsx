@@ -313,58 +313,8 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         />
       )}
 
-      <div className="grid grid-cols-2 gap-1x">
-        <TripStatBadge
-          label="Delay"
-          value={journey.delayMinutes > 0 ? `+${journey.delayMinutes}m` : 'On time'}
-        />
-        <TripStatBadge label="ETA" value={journey.ETA} />
-        <TripStatBadge label="Covered" value={`${Math.round(journey.distanceCoveredKm)} km`} />
-        <TripStatBadge label="Remaining" value={`${Math.round(journey.remainingDistanceKm)} km`} />
-        <TripStatBadge label="Complete" value={`${Math.round(journey.completionPercentage)}%`} />
-        <TripStatBadge label="Updated" value={updatedText} />
-      </div>
-
-      <div className="flex items-center justify-between gap-2x rounded-card bg-surface-raised px-2x py-1.5x shadow-card">
-        <div className="flex min-w-0 items-center gap-2x">
-          <CircularGauge value={journey.speedKmh} max={140} size={72} strokeWidth={6} color={typeColor}>
-            <div className="flex flex-col items-center">
-              <span className="font-display text-subhead leading-none tabular-nums">{journey.speedKmh}</span>
-              <span className="text-[10px] leading-none text-ink-muted">km/h</span>
-            </div>
-          </CircularGauge>
-          <div className="min-w-0">
-            <p className="flex items-center gap-1x text-caption text-ink-muted">
-              <Gauge className="h-3.5 w-3.5 text-accent" aria-hidden />
-              Speed
-            </p>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-0.5x">
-          {projected ? (
-            <span className="rounded-pill bg-ink-muted/10 px-1x py-0.5x text-label text-ink-muted">
-              Projected
-            </span>
-          ) : journey.currentLocation.isMoving ? (
-            <span className="flex items-center gap-1x text-caption font-medium text-status-onTime">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-onTime opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-onTime" />
-              </span>
-              Moving
-            </span>
-          ) : (
-            <span className="flex items-center gap-1x text-caption font-medium text-status-heavyDelay">
-              <span className="h-1.5 w-1.5 rounded-full bg-status-heavyDelay" />
-              Stopped
-            </span>
-          )}
-          {journey.stale && (
-            <span className="text-label normal-case tracking-normal text-ink-muted">stale · retrying</span>
-          )}
-        </div>
-      </div>
-
+      {/* "Where is my train right now" — the single most-asked question —
+          leads the panel instead of being buried below stats and speed. */}
       <div className="flex flex-col gap-1x">
         <div className="flex items-center justify-between gap-1.5x rounded-card bg-surface-raised px-2x py-1x shadow-card">
           <span className="min-w-0 flex-1 break-words text-body font-semibold leading-snug">
@@ -432,11 +382,18 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         </div>
       </div>
 
-      <div>
-        <p className="mb-1x text-label text-ink-muted">
-          Stations · {journey.stations.length}
-        </p>
-        <StationTimeline stations={journey.stations} status={journey.status} />
+      {/* Current conditions right under "where is my train" — no scrolling
+          needed to see what's happening around it right now. */}
+      <div className="grid grid-cols-2 gap-1x">
+        {weather.isLoading ? (
+          <div className="h-24 animate-pulse rounded-card bg-surface-raised/60" aria-hidden />
+        ) : (
+          weather.data && <ContextCard variant="weather" weather={weather.data} />
+        )}
+        <ContextCard variant="sun" sun={sun} />
+        {routeContext.data?.terrainFeatures.slice(0, 4).map((f) => (
+          <ContextCard key={`${f.type}-${f.name}`} variant="terrain" feature={f} />
+        ))}
       </div>
 
       {routeContext.isLoading ? (
@@ -450,22 +407,72 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
           />
         )
       )}
+
+      <div className="grid grid-cols-2 gap-1x">
+        <TripStatBadge
+          label="Delay"
+          value={journey.delayMinutes > 0 ? `+${journey.delayMinutes}m` : 'On time'}
+          tone={journey.delayMinutes >= 15 ? 'bad' : journey.delayMinutes >= 1 ? 'warn' : 'good'}
+        />
+        <TripStatBadge label="ETA" value={journey.ETA} />
+        <TripStatBadge label="Covered" value={`${Math.round(journey.distanceCoveredKm)} km`} />
+        <TripStatBadge label="Remaining" value={`${Math.round(journey.remainingDistanceKm)} km`} />
+        <TripStatBadge label="Complete" value={`${Math.round(journey.completionPercentage)}%`} />
+        <TripStatBadge label="Updated" value={updatedText} />
+      </div>
+
+      <div className="flex items-center justify-between gap-2x rounded-card bg-surface-raised px-2x py-1.5x shadow-card">
+        <div className="flex min-w-0 items-center gap-2x">
+          <CircularGauge value={journey.speedKmh} max={140} size={72} strokeWidth={6} color={typeColor}>
+            <div className="flex flex-col items-center">
+              <span className="font-display text-subhead leading-none tabular-nums">{journey.speedKmh}</span>
+              <span className="text-[10px] leading-none text-ink-muted">km/h</span>
+            </div>
+          </CircularGauge>
+          <div className="min-w-0">
+            <p className="flex items-center gap-1x text-caption text-ink-muted">
+              <Gauge className="h-3.5 w-3.5 text-accent" aria-hidden />
+              Speed
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-0.5x">
+          {projected ? (
+            <span className="rounded-pill bg-ink-muted/10 px-1x py-0.5x text-label text-ink-muted">
+              Projected
+            </span>
+          ) : journey.currentLocation.isMoving ? (
+            <span className="flex items-center gap-1x text-caption font-medium text-status-onTime">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-onTime opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-onTime" />
+              </span>
+              Moving
+            </span>
+          ) : (
+            <span className="flex items-center gap-1x text-caption font-medium text-status-heavyDelay">
+              <span className="h-1.5 w-1.5 rounded-full bg-status-heavyDelay" />
+              Stopped
+            </span>
+          )}
+          {journey.stale && (
+            <span className="text-label normal-case tracking-normal text-ink-muted">stale · retrying</span>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-1x text-label text-ink-muted">
+          Stations · {journey.stations.length}
+        </p>
+        <StationTimeline stations={journey.stations} status={journey.status} />
+      </div>
+
       {coachChart.isLoading ? (
         <div className="h-16 animate-pulse rounded-card bg-surface-raised/60" aria-hidden />
       ) : (
         coachChart.data && <CoachOccupancy chart={coachChart.data} />
       )}
-      <div className="grid grid-cols-2 gap-1x">
-        {weather.isLoading ? (
-          <div className="h-24 animate-pulse rounded-card bg-surface-raised/60" aria-hidden />
-        ) : (
-          weather.data && <ContextCard variant="weather" weather={weather.data} />
-        )}
-        <ContextCard variant="sun" sun={sun} />
-        {routeContext.data?.terrainFeatures.slice(0, 4).map((f) => (
-          <ContextCard key={`${f.type}-${f.name}`} variant="terrain" feature={f} />
-        ))}
-      </div>
     </div>
   );
 
@@ -480,7 +487,7 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         <button
           type="button"
           onClick={() => router.push('/')}
-          className="glass flex items-center gap-1x rounded-pill px-2x py-1x text-body font-medium text-ink transition-colors hover:text-accent"
+          className="glass flex items-center gap-1x rounded-pill px-2x py-1x text-body font-semibold text-ink transition-colors hover:text-accent"
           aria-label="Back to all trains on the map"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -489,7 +496,7 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}
-          className="glass flex items-center gap-1x rounded-pill px-2x py-1x text-body font-medium text-ink-muted transition-colors hover:text-ink"
+          className="glass flex items-center gap-1x rounded-pill px-2x py-1x text-body font-semibold text-ink-muted transition-colors hover:text-ink"
           aria-label="Track another train"
         >
           <Search className="h-4 w-4" aria-hidden />
