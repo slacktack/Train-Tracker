@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search, CornerDownLeft, X } from 'lucide-react';
 import { SearchResult } from '@/types/train';
 import { cn } from '@/lib/cn';
+import { LoadingCue } from '@/components/ui/LoadingCue';
 
 interface CommandPaletteProps {
   open?: boolean;
@@ -122,10 +123,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
         role="dialog"
         aria-modal="true"
         aria-label="Search trains"
-        className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-surface-raised/95 shadow-2xl backdrop-blur-xl"
+        className="relative w-full max-w-lg overflow-hidden rounded-card border border-ink/[0.08] bg-surface-raised/95 shadow-premium backdrop-blur-xl"
       >
-        <div className="flex items-center gap-2x border-b border-ink/10 px-3x py-2x">
-          <Search className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+        <div className="flex items-center gap-2x border-b border-ink/[0.08] px-3x py-2x">
+          <Search className="h-4 w-4 shrink-0 text-accent" aria-hidden />
           <input
             ref={inputRef}
             value={query}
@@ -134,7 +135,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
             className="w-full bg-transparent text-body text-ink outline-none placeholder:text-ink-muted/50"
             aria-label="Search trains by number, name, or city"
           />
-          <kbd className="hidden shrink-0 rounded-md border border-ink/10 bg-surface-raised px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted sm:inline-block">
+          {loading && <LoadingCue label="Searching…" className="shrink-0 hidden sm:inline-flex" />}
+          <kbd className="hidden shrink-0 rounded-md border border-ink/[0.08] bg-surface px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted sm:inline-block">
             ESC
           </kbd>
           <button
@@ -147,7 +149,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
         </div>
 
         <div className="max-h-[46vh] overflow-y-auto p-1x">
-          {loading && <p className="px-2x py-2x text-caption text-ink-muted">Searching…</p>}
+          {loading && results.length === 0 && (
+            <div className="px-2x py-3x">
+              <LoadingCue size="block" label="Searching live trains…" />
+            </div>
+          )}
           {!loading && results.length === 0 && (
             <div className="px-2x py-2x text-caption text-ink-muted">
               {query ? (
@@ -170,15 +176,15 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
               onClick={() => goTo(r.number)}
               onMouseEnter={() => setSelected(i)}
               className={cn(
-                'flex w-full items-center gap-2x rounded-xl px-2x py-1x text-left transition-colors',
-                i === selected && 'bg-ink/10'
+                'flex w-full items-center gap-2x rounded-card px-2x py-1.5x text-left transition-colors',
+                i === selected && 'bg-accent/10 ring-1 ring-inset ring-accent/15'
               )}
             >
-              <span className="shrink-0 rounded-md bg-accent/20 px-1x py-0.5x text-caption font-semibold tabular-nums text-accent">
+              <span className="shrink-0 rounded-md bg-accent/15 px-1.5x py-0.5x text-caption font-semibold tabular-nums text-accent">
                 {r.number}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block break-words text-body text-ink">{r.name}</span>
+                <span className="block break-words text-body font-medium text-ink">{r.name}</span>
                 {r.origin.name && r.destination.name && (
                   <span className="block break-words text-caption text-ink-muted">
                     {r.origin.name} → {r.destination.name}
@@ -199,12 +205,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
                   </span>
                 )}
               </span>
-              {i === selected && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-ink-muted" aria-hidden />}
+              {i === selected && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />}
             </button>
           ))}
         </div>
 
-        <div className="hidden items-center gap-2x border-t border-ink/10 px-3x py-1x text-label normal-case tracking-normal text-ink-muted sm:flex">
+        <div className="hidden items-center gap-2x border-t border-ink/[0.08] px-3x py-1x text-label normal-case tracking-normal text-ink-muted sm:flex">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span className="ml-auto">⌘K anywhere</span>

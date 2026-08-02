@@ -18,10 +18,10 @@ export function StationBoard({ station, onClose, onSelectTrain }: StationBoardPr
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 32, opacity: 0 }}
       transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-      className="glass flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-sheet shadow-glass sm:max-h-[70vh] sm:rounded-sheet"
+      className="glass-strong flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-sheet sm:max-h-[70vh] sm:rounded-sheet"
     >
-      <div className="mx-auto mt-1x h-1 w-9 shrink-0 rounded-full bg-ink-muted/25 sm:hidden" aria-hidden />
-      <div className="flex items-start justify-between gap-2x border-b border-ink/10 px-3x py-2x">
+      <div className="mx-auto mt-1x h-1.5 w-10 shrink-0 rounded-full bg-ink-muted/30 sm:hidden" aria-hidden />
+      <div className="flex items-start justify-between gap-2x border-b border-ink/[0.08] px-3x py-2x">
         <div className="min-w-0">
           <p className="flex items-center gap-1x text-label text-accent">
             <Building2 className="h-3.5 w-3.5" aria-hidden />

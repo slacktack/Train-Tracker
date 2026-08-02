@@ -17,6 +17,7 @@ import { StationTimeline } from '@/components/StationTimeline';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { Button } from '@/components/ui/Button';
 import { CircularGauge } from '@/components/ui/CircularGauge';
+import { LoadingCue, LoadingSkeleton } from '@/components/ui/LoadingCue';
 import { getSunInfo } from '@/lib/sun';
 import { useTimeTheme } from '@/lib/useTimeTheme';
 import { todayInISTISO, TrainSchedule, CoachChart } from '@/lib/rail-schedule-types';
@@ -147,7 +148,7 @@ function PreJourneyDashboard({
 }) {
   const [reminder, setReminder] = useState(false);
   return (
-    <div className="flex flex-col gap-2x rounded-card border border-accent/20 bg-accent/10 p-3x">
+    <div className="flex flex-col gap-2x rounded-card border border-accent/20 bg-gradient-to-br from-accent/15 to-accent/5 p-3x shadow-card">
       <div className="flex items-center justify-between">
         <p className="text-label text-accent">Not departed yet</p>
         <StatusPill status="not_started" delayMinutes={0} />
@@ -204,9 +205,19 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2x bg-surface">
-        <Loader2 className="h-6 w-6 animate-spin text-accent" aria-hidden />
-        <p className="text-body text-ink-muted">Locating train…</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3x bg-surface px-3x">
+        <div className="glass-strong flex w-full max-w-sm flex-col items-center gap-3x rounded-card p-4x">
+          <Loader2 className="h-7 w-7 animate-spin text-accent" aria-hidden />
+          <LoadingCue label="Locating train & fetching live status…" />
+          <div className="flex w-full flex-col gap-1.5x">
+            <LoadingSkeleton className="h-24 w-full" label="Hero loading" />
+            <div className="grid grid-cols-2 gap-1x">
+              <LoadingSkeleton className="h-14 w-full" label="Stat loading" />
+              <LoadingSkeleton className="h-14 w-full" label="Stat loading" />
+            </div>
+            <LoadingSkeleton className="h-20 w-full" label="Timeline loading" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -386,7 +397,10 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
           needed to see what's happening around it right now. */}
       <div className="grid grid-cols-2 gap-1x">
         {weather.isLoading ? (
-          <div className="h-24 animate-pulse rounded-card bg-surface-raised/60" aria-hidden />
+          <div className="col-span-1 flex flex-col gap-1x">
+            <LoadingSkeleton className="h-24 w-full" label="Weather loading" />
+            <LoadingCue label="Fetching weather…" className="justify-center" />
+          </div>
         ) : (
           weather.data && <ContextCard variant="weather" weather={weather.data} />
         )}
@@ -397,7 +411,10 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
       </div>
 
       {routeContext.isLoading ? (
-        <div className="h-[148px] animate-pulse rounded-card bg-surface-raised/60" aria-hidden />
+        <div className="flex flex-col gap-1x">
+          <LoadingSkeleton className="h-[148px] w-full" label="Elevation loading" />
+          <LoadingCue label="Loading elevation profile…" className="justify-center" />
+        </div>
       ) : (
         routeContext.data &&
         routeContext.data.elevationProfile.length > 0 && (
@@ -462,14 +479,17 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
       </div>
 
       <div>
-        <p className="mb-1x text-label text-ink-muted">
-          Stations · {journey.stations.length}
+        <p className="mb-1.5x text-label text-ink-muted">
+          Station timeline · {journey.stations.length} stops
         </p>
         <StationTimeline stations={journey.stations} status={journey.status} />
       </div>
 
       {coachChart.isLoading ? (
-        <div className="h-16 animate-pulse rounded-card bg-surface-raised/60" aria-hidden />
+        <div className="flex flex-col gap-1x">
+          <LoadingSkeleton className="h-16 w-full" label="Coach chart loading" />
+          <LoadingCue label="Fetching coach occupancy…" className="justify-center" />
+        </div>
       ) : (
         coachChart.data && <CoachOccupancy chart={coachChart.data} />
       )}
@@ -487,7 +507,7 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         <button
           type="button"
           onClick={() => router.push('/')}
-          className="glass flex items-center gap-1x rounded-pill px-2x py-1x text-body font-semibold text-ink transition-colors hover:text-accent"
+          className="glass-strong flex items-center gap-1x rounded-pill px-2x py-1x text-body font-bold text-ink transition-colors hover:text-accent"
           aria-label="Back to all trains on the map"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -496,7 +516,7 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}
-          className="glass flex items-center gap-1x rounded-pill px-2x py-1x text-body font-semibold text-ink-muted transition-colors hover:text-ink"
+          className="glass-strong flex items-center gap-1x rounded-pill px-2x py-1x text-body font-bold text-ink-muted transition-colors hover:text-ink"
           aria-label="Track another train"
         >
           <Search className="h-4 w-4" aria-hidden />

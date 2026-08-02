@@ -46,7 +46,7 @@ function weatherIcon(condition: string): typeof Cloud {
 }
 
 const CARD_CLASS =
-  'glass flex min-w-0 flex-1 basis-40 flex-col gap-1x rounded-card px-2x py-1x shadow-card';
+  'flex min-w-0 flex-1 basis-40 flex-col gap-1x rounded-card bg-surface-raised px-2x py-1.5x shadow-card ring-1 ring-inset ring-ink/[0.06]';
 
 export function ContextCard(props: ContextCardProps) {
   if (props.variant === 'terrain') {

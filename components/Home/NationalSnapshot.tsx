@@ -48,7 +48,7 @@ export function NationalSnapshot({ trains }: NationalSnapshotProps) {
   }, [trains]);
 
   return (
-    <div className="glass relative rounded-card">
+    <div className="glass relative rounded-card ring-1 ring-inset ring-ink/[0.04]">
       <div
         className="flex items-center gap-3x overflow-x-auto no-scrollbar rounded-card py-1.5x pl-2.5x pr-6x"
         style={{ maskImage: 'linear-gradient(to right, black calc(100% - 40px), transparent)', WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 40px), transparent)' }}

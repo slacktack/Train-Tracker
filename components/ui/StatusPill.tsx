@@ -21,7 +21,14 @@ export function statusLabel(status: LiveJourney['status'], delayMinutes: number)
 export function StatusPill({ status, delayMinutes }: StatusPillProps) {
   const { label, colorClass } = statusLabel(status, delayMinutes);
   return (
-    <span className={cn('inline-flex items-center gap-1x rounded-pill px-2x py-0.5x text-xs font-semibold text-white', colorClass)}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1x rounded-pill px-2x py-0.5x text-xs font-semibold tracking-tight text-white shadow-sm',
+        'ring-1 ring-inset ring-white/15',
+        colorClass
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-white/90" aria-hidden />
       {label}
     </span>
   );

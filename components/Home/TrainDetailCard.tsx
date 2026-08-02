@@ -10,6 +10,7 @@ import { LiveTrain } from '@/types/train';
 import { CoachChart, todayInISTISO, TrainSchedule } from '@/lib/rail-schedule-types';
 import { Button } from '@/components/ui/Button';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { LoadingCue, LoadingSkeleton } from '@/components/ui/LoadingCue';
 import { TripStatBadge } from '@/components/TripStatBadge';
 import { StationRow } from '@/components/StationRow';
 import { trainTypeColor, trainTypeLabel } from '@/lib/train-type';
@@ -100,13 +101,13 @@ export function TrainDetailCard({ train, onClose, onTrack }: TrainDetailCardProp
       animate={{ x: 0, y: 0, opacity: 1 }}
       exit={isMobile ? { y: 72, opacity: 0 } : { x: -32, opacity: 0 }}
       transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-      className="glass flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-sheet shadow-glass sm:max-h-[calc(100dvh-2.5rem)] sm:rounded-sheet"
+      className="glass-strong flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-sheet sm:max-h-[calc(100dvh-2.5rem)] sm:rounded-sheet"
     >
-      <div className="mx-auto mt-1x h-1 w-9 shrink-0 rounded-full bg-ink-muted/25 sm:hidden" aria-hidden />
+      <div className="mx-auto mt-1x h-1.5 w-10 shrink-0 rounded-full bg-ink-muted/30 sm:hidden" aria-hidden />
       <div
         className="relative shrink-0 overflow-hidden px-3x pb-3x pt-3x"
         style={{
-          background: `linear-gradient(135deg, ${typeColor}26 0%, ${typeColor}0d 45%, transparent 75%)`,
+          background: `linear-gradient(145deg, ${typeColor}22 0%, ${typeColor}0a 40%, transparent 72%)`,
         }}
       >
         <div className="flex items-start justify-between gap-2x">
@@ -163,10 +164,7 @@ export function TrainDetailCard({ train, onClose, onTrack }: TrainDetailCardProp
 
         <div className="mt-2x flex items-center justify-between gap-2x">
           {isLoading ? (
-            <span className="inline-flex items-center gap-1x text-caption text-ink-muted">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink-muted/40" aria-hidden />
-              Fetching live status…
-            </span>
+            <LoadingCue label="Fetching live status…" />
           ) : journey ? (
             <StatusPill status={journey.status} delayMinutes={journey.delayMinutes} />
           ) : (
@@ -178,7 +176,7 @@ export function TrainDetailCard({ train, onClose, onTrack }: TrainDetailCardProp
           <div className="flex items-baseline gap-0.5x">
             {isLoading ? (
               <>
-                <span className="h-8 w-12 animate-pulse rounded-md bg-ink-muted/10" />
+                <LoadingSkeleton className="h-8 w-12 rounded-md" label="Speed loading" />
                 <span className="text-caption text-ink-muted">km/h</span>
               </>
             ) : showSpeed ? (
@@ -246,10 +244,12 @@ export function TrainDetailCard({ train, onClose, onTrack }: TrainDetailCardProp
               />
               <TripStatBadge label="ETA" value="—" className="col-span-2" />
             </div>
-            <p className="flex items-center gap-1x text-caption text-ink-muted">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink-muted/40" aria-hidden />
-              Fetching live status…
-            </p>
+            <LoadingCue size="block" label="Fetching live journey details…" />
+            <div className="flex flex-col gap-1x">
+              <LoadingSkeleton className="h-10 w-full" label="Station row loading" />
+              <LoadingSkeleton className="h-10 w-full" label="Station row loading" />
+              <LoadingSkeleton className="h-10 w-3/4" label="Station row loading" />
+            </div>
           </div>
         )}
 
@@ -353,7 +353,7 @@ export function TrainDetailCard({ train, onClose, onTrack }: TrainDetailCardProp
         )}
       </div>
 
-      <div className="shrink-0 border-t border-ink/10 bg-surface-raised/85 px-3x pt-2x pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-glass">
+      <div className="shrink-0 border-t border-ink/[0.08] bg-surface-raised/90 px-3x pt-2x pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-glass">
         <Button className="w-full" onClick={() => onTrack(train.n)}>
           Track this train
           <ArrowRight className="ml-1x h-4 w-4" aria-hidden />

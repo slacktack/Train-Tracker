@@ -148,14 +148,14 @@ export default function HomePage() {
       <div className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 h-36 bg-gradient-to-t ${bottomShade} to-transparent`} />
 
       <header className="absolute inset-x-0 top-[max(1rem,env(safe-area-inset-top))] z-20 flex flex-col items-center gap-1x px-2x sm:px-3x">
-        <div className="glass-strong flex w-full max-w-3xl flex-col gap-1x rounded-card px-2x py-1x sm:flex-row sm:items-center sm:gap-2x">
+        <div className="glass-strong flex w-full max-w-3xl flex-col gap-1x rounded-card px-2x py-1.5x sm:flex-row sm:items-center sm:gap-2x">
           <div className="flex items-center gap-2x">
             <div className="flex shrink-0 items-center gap-1.5x">
-              <span className="flex h-9 w-9 items-center justify-center rounded-pill bg-accent/15">
+              <span className="flex h-9 w-9 items-center justify-center rounded-pill bg-accent/15 shadow-glow">
                 <TrainFront className="h-4 w-4 text-accent" aria-hidden />
               </span>
               <div className="hidden sm:block">
-                <p className="font-display text-subhead leading-none">Train Tracker</p>
+                <p className="font-display text-subhead leading-none tracking-tight">Train Tracker</p>
                 <p className="mt-1 text-label normal-case tracking-wider text-ink-muted">India · Live</p>
               </div>
             </div>
@@ -187,11 +187,11 @@ export default function HomePage() {
 
           <button
             onClick={() => setPaletteOpen(true)}
-            className="flex h-9 min-w-0 flex-1 items-center gap-1.5x rounded-pill border border-ink/10 bg-surface-raised/60 px-2x text-body text-ink-muted transition-colors hover:border-ink/25 hover:text-ink"
+            className="flex h-10 min-w-0 flex-1 items-center gap-1.5x rounded-pill border border-ink/[0.08] bg-surface/70 px-2x text-body text-ink-muted shadow-sm transition-all hover:border-accent/30 hover:bg-surface-raised hover:text-ink hover:shadow-card"
           >
-            <Search className="h-4 w-4 shrink-0" aria-hidden />
+            <Search className="h-4 w-4 shrink-0 text-accent/70" aria-hidden />
             <span className="flex-1 text-left">Search train, number, or city</span>
-            <kbd className="hidden rounded-md border border-ink-muted/20 bg-surface-raised/60 px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted sm:inline-block">
+            <kbd className="hidden rounded-md border border-ink-muted/20 bg-surface-raised/80 px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted sm:inline-block">
               ⌘K
             </kbd>
           </button>
@@ -228,7 +228,7 @@ export default function HomePage() {
         <div className="absolute inset-x-0 top-3x z-30 flex justify-center px-3x pt-12x">
           <button
             onClick={poll}
-            className="glass rounded-pill px-2x py-1x text-sm font-medium text-accent"
+            className="glass-strong rounded-pill px-3x py-1.5x text-body font-semibold text-accent shadow-glow"
           >
             Couldn&apos;t reach the live feed — tap to retry
           </button>

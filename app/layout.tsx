@@ -27,7 +27,7 @@ const notoDevanagari = Noto_Sans_Devanagari({
 
 export const metadata: Metadata = {
   title: "Train Tracker",
-  description: "Real-time train tracking web app",
+  description: "Live train tracking across India — real-time position, delay, and ETA.",
 };
 
 export default function RootLayout({

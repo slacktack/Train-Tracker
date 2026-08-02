@@ -4,22 +4,36 @@
 
 :root {
   color-scheme: light;
-  --surface: 244 246 250;
+  /* Cool slate base — reads like Linear/Vercel, not a government portal */
+  --surface: 246 247 251;
   --surface-raised: 255 255 255;
-  --ink: 17 17 20;
-  --ink-muted: 108 108 116;
-  --accent: 79 70 229;
+  --surface-elevated: 255 255 255;
+  --ink: 15 17 23;
+  --ink-muted: 100 106 120;
+  /* Electric indigo with enough saturation to feel intentional */
+  --accent: 99 102 241;
+  --accent-soft: 99 102 241;
   --glass-border: 0 0 0;
+  --ring: 99 102 241;
+  --success: 16 185 129;
+  --warning: 245 158 11;
+  --danger: 239 68 68;
 }
 
 .dark {
   color-scheme: dark;
-  --surface: 9 10 14;
-  --surface-raised: 22 24 30;
-  --ink: 245 245 247;
-  --ink-muted: 152 152 160;
-  --accent: 129 140 255;
+  --surface: 8 9 13;
+  --surface-raised: 18 20 28;
+  --surface-elevated: 26 29 40;
+  --ink: 244 245 248;
+  --ink-muted: 148 152 168;
+  --accent: 129 140 248;
+  --accent-soft: 99 102 241;
   --glass-border: 255 255 255;
+  --ring: 129 140 248;
+  --success: 52 211 153;
+  --warning: 251 191 36;
+  --danger: 248 113 113;
 }
 
 html,
@@ -27,9 +41,12 @@ body {
   @apply bg-surface text-ink;
   font-variant-numeric: tabular-nums;
   transition: background-color 0.4s ease, color 0.4s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em;
 }
 
-/* Subtle ambient gradient so the map page never feels flat */
+/* Ambient glow — premium depth without competing with the map */
 body::before {
   content: '';
   position: fixed;
@@ -37,47 +54,125 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(1200px 600px at 20% -10%, rgb(var(--accent) / 0.08), transparent 60%),
-    radial-gradient(900px 500px at 90% 110%, rgb(var(--accent) / 0.06), transparent 60%);
+    radial-gradient(1100px 560px at 18% -8%, rgb(var(--accent) / 0.11), transparent 58%),
+    radial-gradient(900px 480px at 92% 108%, rgb(var(--accent) / 0.07), transparent 55%),
+    radial-gradient(600px 400px at 70% 20%, rgb(var(--accent) / 0.04), transparent 50%);
 }
 
 .glass {
-  @apply border border-ink/10 bg-surface-raised/70 backdrop-blur-glass backdrop-saturate-150 shadow-glass;
+  @apply border border-ink/[0.08] bg-surface-raised/75 backdrop-blur-glass backdrop-saturate-150 shadow-glass;
   transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .glass-strong {
-  @apply border border-ink/10 bg-surface-raised/85 backdrop-blur-2xl backdrop-saturate-150;
+  @apply border border-ink/[0.08] bg-surface-raised/90 backdrop-blur-2xl backdrop-saturate-150;
   box-shadow:
+    0 0 0 1px rgb(var(--glass-border) / 0.04),
     0 1px 2px rgb(0 0 0 / 0.04),
-    inset 0 1px 0 rgb(var(--glass-border) / 0.08),
-    0 8px 32px -4px rgb(0 0 0 / 0.12);
+    inset 0 1px 0 rgb(var(--glass-border) / 0.1),
+    0 12px 40px -8px rgb(0 0 0 / 0.14);
 }
 .dark .glass-strong {
   box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.3),
-    inset 0 1px 0 rgb(var(--glass-border) / 0.14),
-    0 8px 32px -4px rgb(0 0 0 / 0.55);
+    0 0 0 1px rgb(var(--glass-border) / 0.06),
+    0 1px 2px rgb(0 0 0 / 0.35),
+    inset 0 1px 0 rgb(var(--glass-border) / 0.12),
+    0 16px 48px -8px rgb(0 0 0 / 0.6);
 }
 
-/* Softer, more premium glass shadow that reads well in both themes */
 @layer utilities {
   .shadow-glass {
     box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.03),
       0 1px 2px rgb(0 0 0 / 0.04),
-      0 8px 24px -4px rgb(0 0 0 / 0.12);
+      0 10px 28px -6px rgb(0 0 0 / 0.12);
   }
   .dark .shadow-glass {
     box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.04),
       0 1px 2px rgb(0 0 0 / 0.3),
-      0 8px 32px -4px rgb(0 0 0 / 0.55);
+      0 14px 40px -8px rgb(0 0 0 / 0.55);
   }
+
+  .shadow-premium {
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.04),
+      0 2px 4px rgb(0 0 0 / 0.03),
+      0 12px 32px -8px rgb(0 0 0 / 0.14);
+  }
+  .dark .shadow-premium {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.05),
+      0 2px 4px rgb(0 0 0 / 0.25),
+      0 16px 40px -8px rgb(0 0 0 / 0.55);
+  }
+
+  .shadow-glow {
+    box-shadow:
+      0 0 0 1px rgb(var(--accent) / 0.2),
+      0 4px 16px -2px rgb(var(--accent) / 0.35),
+      0 8px 28px -6px rgb(var(--accent) / 0.2);
+  }
+
   .no-scrollbar {
     scrollbar-width: none;
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /* Soft edge highlight used on raised cards */
+  .ring-hairline {
+    box-shadow: inset 0 1px 0 0 rgb(var(--glass-border) / 0.08);
+  }
+}
+
+/* Shimmer skeleton — used by LoadingSkeleton for consistent fetch cues */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--ink-muted) / 0.06) 0%,
+    rgb(var(--ink-muted) / 0.14) 45%,
+    rgb(var(--ink-muted) / 0.06) 90%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 12px;
+}
+.dark .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--ink-muted) / 0.08) 0%,
+    rgb(var(--ink-muted) / 0.18) 45%,
+    rgb(var(--ink-muted) / 0.08) 90%
+  );
+  background-size: 200% 100%;
+}
+
+/* Soft pulse for live-fetch dots */
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}
+
+.live-dot {
+  animation: live-pulse 1.6s ease-in-out infinite;
 }
 
 /* Custom scrollbars that match the theme */
@@ -103,5 +198,9 @@ body::before {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  .skeleton {
+    animation: none;
+    background: rgb(var(--ink-muted) / 0.1);
   }
 }
