@@ -47,8 +47,15 @@ function getSnapshot(): ThemeState {
   return state;
 }
 
+// useSyncExternalStore requires a stable reference from getServerSnapshot —
+// a fresh object every call trips React's "should be cached" warning (and
+// can loop). The server-rendered theme doesn't change within a render pass,
+// so compute it once and reuse it.
+let serverSnapshot: ThemeState | null = null;
+
 function getServerSnapshot(): ThemeState {
-  return { preference: 'auto', theme: themeForIST() };
+  if (!serverSnapshot) serverSnapshot = { preference: 'auto', theme: themeForIST() };
+  return serverSnapshot;
 }
 
 function apply(next: ThemeState) {

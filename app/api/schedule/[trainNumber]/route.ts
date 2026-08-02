@@ -16,7 +16,8 @@ export async function GET(
 
     const schedule = await getTrainSchedule(trainNumber);
     if (!schedule) {
-      return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
+      // 200 + null: "no data" is normal here — 404s would spam the console.
+      return NextResponse.json(null);
     }
     await setCached(cacheKey, schedule, 24 * 3600);
     return NextResponse.json(schedule);

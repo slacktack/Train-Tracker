@@ -43,27 +43,27 @@ export function StationTimeline({ stations, status }: StationTimelineProps) {
               <div className="min-w-0">
                 <p
                   className={cn(
-                    'truncate text-sm font-medium',
+                    'break-words text-body font-medium leading-snug',
                     isPassed && !isOrigin && 'text-ink-muted'
                   )}
                 >
                   {s.name}
                 </p>
-                <p className="text-xs text-ink-muted">
+                <p className="text-caption text-ink-muted">
                   {s.platform ? `PF ${s.platform}` : s.code}
                 </p>
               </div>
               <div className="shrink-0 text-right">
                 <p
                   className={cn(
-                    'text-sm tabular-nums',
+                    'text-body tabular-nums',
                     isCurrent && 'font-semibold text-accent'
                   )}
                 >
                   {s.actualArrival ?? s.scheduledArrival}
                 </p>
                 {s.delayMinutes > 0 && (
-                  <p className="text-xs text-status-minorDelay">+{s.delayMinutes}m</p>
+                  <p className="text-caption text-status-minorDelay">+{s.delayMinutes}m</p>
                 )}
               </div>
             </div>
@@ -74,7 +74,7 @@ export function StationTimeline({ stations, status }: StationTimelineProps) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-1x self-start rounded-full px-2x py-1x text-xs font-semibold text-accent transition-colors hover:bg-accent/10"
+          className="mt-1x self-start rounded-full px-2x py-1x text-caption font-semibold text-accent transition-colors hover:bg-accent/10"
         >
           {expanded
             ? 'Show fewer'

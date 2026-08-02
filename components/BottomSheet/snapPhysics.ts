@@ -1,11 +1,14 @@
-export type SheetSnapState = 'peek' | 'half';
+export type SheetSnapState = 'peek' | 'half' | 'full';
 
 export const SNAP_HEIGHTS: Record<SheetSnapState, number> = {
-  peek: 0.12,
-  half: 0.5,
+  // 0.18 clipped 2-line-wrapped train names / stat values instead of showing
+  // them in full; 0.23 gives peek room to show everything without an ellipsis.
+  peek: 0.23,
+  half: 0.55,
+  full: 0.95,
 };
 
-const ORDER: SheetSnapState[] = ['peek', 'half'];
+const ORDER: SheetSnapState[] = ['peek', 'half', 'full'];
 
 const FLING_EPSILON = 0.05;
 
@@ -16,7 +19,7 @@ export function resolveSnapState(
 ): SheetSnapState {
   if (velocity > flingThreshold) {
     const next = ORDER.find((s) => SNAP_HEIGHTS[s] > currentHeightFraction + FLING_EPSILON);
-    return next ?? 'half';
+    return next ?? 'full';
   }
   if (velocity < -flingThreshold) {
     const next = [...ORDER]

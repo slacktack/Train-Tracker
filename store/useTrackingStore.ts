@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type SheetState = 'peek' | 'half';
+export type SheetState = 'peek' | 'half' | 'full';
 
 interface TrackingStore {
   sheetState: SheetState;

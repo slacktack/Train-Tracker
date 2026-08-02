@@ -6,7 +6,10 @@ import { LiveJourney } from '@/types/train';
 
 // Overpass rail-route geometry can take 10-40s on a cold route but the card
 // data never uses it — serve the journey fast, warm the cache in background.
-const ROUTE_GRACE_MS = 2_000;
+// Blocking the response for it (even briefly) makes every cold journey load
+// feel slow. useJourney refetches every 18s, so the background fill below
+// reaches the client on the very next poll regardless — no need to wait here.
+const ROUTE_GRACE_MS = 200;
 
 export async function GET(
   _req: NextRequest,

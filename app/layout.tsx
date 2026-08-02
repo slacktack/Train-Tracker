@@ -1,23 +1,28 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Inter, Space_Grotesk, Noto_Sans_Devanagari } from "next/font/google";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { themeForIST } from "@/lib/theme";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
+// Inter is tuned for UI legibility at small sizes, which is most of this
+// app's body text (11-14px labels, stats, station rows).
+const inter = Inter({
+  subsets: ["latin"],
   variable: "--font-geist-sans",
-  weight: "100 900",
+  weight: ["400", "500", "600", "700"],
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
-const spaceGrotesk = localFont({
-  src: "./fonts/SpaceGrotesk-VariableFont_wght.woff2",
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
   variable: "--font-display",
-  weight: "300 700",
+  weight: ["500", "600", "700"],
+});
+// Train names are frequently shown in Hindi (nameUnicode) — Inter has no
+// Devanagari glyphs, so without this the browser silently falls back to
+// whatever system font is installed, clashing with the rest of the UI.
+const notoDevanagari = Noto_Sans_Devanagari({
+  subsets: ["devanagari"],
+  variable: "--font-devanagari",
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -36,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={theme === 'dark' ? 'dark' : ''}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} antialiased`}
+        className={`${inter.variable} ${spaceGrotesk.variable} ${notoDevanagari.variable} antialiased`}
       >
         <QueryProvider>{children}</QueryProvider>
       </body>

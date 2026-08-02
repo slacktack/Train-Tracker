@@ -15,11 +15,19 @@ const config: Config = {
           muted: 'rgb(var(--ink-muted) / <alpha-value>)',
         },
         status: {
-          onTime: '#34C759',
-          minorDelay: '#FF9F0A',
-          heavyDelay: '#FF3B30',
+          onTime: '#22C55E',
+          minorDelay: '#F59E0B',
+          heavyDelay: '#EF4444',
         },
         accent: 'rgb(var(--accent) / <alpha-value>)',
+      },
+      fontSize: {
+        label: ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0.03em', fontWeight: '600' }],
+        caption: ['0.75rem', { lineHeight: '1rem' }],
+        body: ['0.875rem', { lineHeight: '1.25rem' }],
+        subhead: ['1.0625rem', { lineHeight: '1.375rem', fontWeight: '600' }],
+        headline: ['1.75rem', { lineHeight: '2rem', fontWeight: '600' }],
+        stat: ['1.0625rem', { lineHeight: '1.25rem', fontWeight: '600' }],
       },
       spacing: {
         '0.5x': '4px',
@@ -44,6 +52,7 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
         display: ['var(--font-display)', 'var(--font-geist-sans)', 'system-ui', 'sans-serif'],
+        devanagari: ['var(--font-devanagari)', 'var(--font-geist-sans)', 'system-ui', 'sans-serif'],
       },
     },
   },

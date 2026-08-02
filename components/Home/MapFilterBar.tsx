@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Activity, Ban, LocateFixed, MoveRight } from 'lucide-react';
+import { Activity, Ban, ChevronRight, LocateFixed, MoveRight } from 'lucide-react';
 import { LiveTrain } from '@/types/train';
 import { sortTrainTypes, trainTypeColor, trainTypeLabel } from '@/lib/train-type';
 
@@ -62,67 +62,90 @@ export function MapFilterBar({ trains, filters, onChange }: MapFilterBarProps) {
   };
 
   const chipBase =
-    'flex shrink-0 items-center gap-1x rounded-pill border px-2x py-0.5x text-xs font-medium transition-colors';
+    'flex shrink-0 items-center gap-1x rounded-pill border px-2x py-0.5x text-caption font-medium transition-colors';
   const activeChip = 'border-accent bg-accent/15 text-accent';
   const idleChip = 'border-ink/10 bg-surface-raised/60 text-ink-muted hover:border-ink/25 hover:text-ink';
 
+  const edgeFade = {
+    maskImage: 'linear-gradient(to right, black calc(100% - 28px), transparent)',
+    WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 28px), transparent)',
+  };
+
   return (
     <div className="flex flex-col gap-1x">
-      <div className="no-scrollbar flex items-center gap-1x overflow-x-auto pb-0.5x">
-        <button
-          onClick={() => onChange({ ...filters, types: [] })}
-          className={`${chipBase} ${filters.types.length === 0 ? activeChip : idleChip}`}
-        >
-          All
-          <span className="tabular-nums text-[10px] opacity-70">{trains.length}</span>
-        </button>
-        {presentTypes.map((type) => (
+      <div className="relative">
+        <div className="no-scrollbar flex items-center gap-1x overflow-x-auto pb-0.5x" style={edgeFade}>
           <button
-            key={type}
-            onClick={() => toggleType(type)}
-            className={`${chipBase} ${filters.types.includes(type) ? activeChip : idleChip}`}
+            onClick={() => onChange({ ...filters, types: [] })}
+            className={`${chipBase} ${filters.types.length === 0 ? activeChip : idleChip}`}
           >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: trainTypeColor(type) }} />
-            {trainTypeLabel(type)}
-            <span className="tabular-nums text-[10px] opacity-70">{typeCounts.get(type) ?? 0}</span>
+            All
+            <span className="tabular-nums text-label normal-case tracking-normal opacity-70">{trains.length}</span>
           </button>
-        ))}
+          {presentTypes.map((type) => (
+            <button
+              key={type}
+              onClick={() => toggleType(type)}
+              className={`${chipBase} ${filters.types.includes(type) ? activeChip : idleChip}`}
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: trainTypeColor(type) }} />
+              {trainTypeLabel(type)}
+              <span className="tabular-nums text-label normal-case tracking-normal opacity-70">{typeCounts.get(type) ?? 0}</span>
+            </button>
+          ))}
+          <span className="w-4x shrink-0" aria-hidden />
+        </div>
+        <span
+          className="pointer-events-none absolute right-0 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-surface-raised/90 shadow-card"
+          aria-hidden
+        >
+          <ChevronRight className="h-3.5 w-3.5 text-ink-muted" />
+        </span>
       </div>
 
-      <div className="no-scrollbar flex items-center gap-1x overflow-x-auto">
-        {MOTION_CHIPS.map(({ key, label, icon: Icon }) => {
-          const active = filters.motion === key;
-          return (
-            <button
-              key={key}
-              onClick={() => onChange({ ...filters, motion: active ? 'all' : key })}
-              className={`${chipBase} ${active ? activeChip : idleChip}`}
-            >
-              <Icon className="h-3 w-3" aria-hidden />
-              {label}
-              <span className="tabular-nums text-[10px] opacity-70">
-                {key === 'all' ? trains.length : key === 'GPS' ? movingCount : trains.length - movingCount}
-              </span>
-            </button>
-          );
-        })}
-        <span className="mx-0.5x h-3 w-px shrink-0 bg-ink/15" aria-hidden />
-        {SPEED_CHIPS.map(({ key, label, icon: Icon }) => {
-          const active = filters.speed === key;
-          return (
-            <button
-              key={key}
-              onClick={() => onChange({ ...filters, speed: active ? 'all' : key })}
-              className={`${chipBase} ${active ? activeChip : idleChip}`}
-            >
-              <Icon className="h-3 w-3" aria-hidden />
-              {label}
-              <span className="tabular-nums text-[10px] opacity-70">
-                {key === 'all' ? trains.length : key === 'moving' ? fastCount : idleCount}
-              </span>
-            </button>
-          );
-        })}
+      <div className="relative">
+        <div className="no-scrollbar flex items-center gap-1x overflow-x-auto" style={edgeFade}>
+          {MOTION_CHIPS.map(({ key, label, icon: Icon }) => {
+            const active = filters.motion === key;
+            return (
+              <button
+                key={key}
+                onClick={() => onChange({ ...filters, motion: active ? 'all' : key })}
+                className={`${chipBase} ${active ? activeChip : idleChip}`}
+              >
+                <Icon className="h-3 w-3 shrink-0" aria-hidden />
+                {label}
+                <span className="tabular-nums text-label normal-case tracking-normal opacity-70">
+                  {key === 'all' ? trains.length : key === 'GPS' ? movingCount : trains.length - movingCount}
+                </span>
+              </button>
+            );
+          })}
+          <span className="mx-0.5x h-3 w-px shrink-0 bg-ink/15" aria-hidden />
+          {SPEED_CHIPS.map(({ key, label, icon: Icon }) => {
+            const active = filters.speed === key;
+            return (
+              <button
+                key={key}
+                onClick={() => onChange({ ...filters, speed: active ? 'all' : key })}
+                className={`${chipBase} ${active ? activeChip : idleChip}`}
+              >
+                <Icon className="h-3 w-3 shrink-0" aria-hidden />
+                {label}
+                <span className="tabular-nums text-label normal-case tracking-normal opacity-70">
+                  {key === 'all' ? trains.length : key === 'moving' ? fastCount : idleCount}
+                </span>
+              </button>
+            );
+          })}
+          <span className="w-4x shrink-0" aria-hidden />
+        </div>
+        <span
+          className="pointer-events-none absolute right-0 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-surface-raised/90 shadow-card"
+          aria-hidden
+        >
+          <ChevronRight className="h-3.5 w-3.5 text-ink-muted" />
+        </span>
       </div>
     </div>
   );

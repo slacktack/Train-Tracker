@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, CornerDownLeft } from 'lucide-react';
+import { Search, CornerDownLeft, X } from 'lucide-react';
 import { SearchResult } from '@/types/train';
 import { cn } from '@/lib/cn';
 
@@ -131,18 +131,25 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search train number or name…"
-            className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted/50"
+            className="w-full bg-transparent text-body text-ink outline-none placeholder:text-ink-muted/50"
             aria-label="Search trains by number or name"
           />
-          <kbd className="shrink-0 rounded-md border border-ink/10 bg-surface-raised px-1x py-0.5x text-[10px] font-medium text-ink-muted">
+          <kbd className="hidden shrink-0 rounded-md border border-ink/10 bg-surface-raised px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted sm:inline-block">
             ESC
           </kbd>
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Close search"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink sm:hidden"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
         </div>
 
         <div className="max-h-[46vh] overflow-y-auto p-1x">
-          {loading && <p className="px-2x py-2x text-xs text-ink-muted">Searching…</p>}
+          {loading && <p className="px-2x py-2x text-caption text-ink-muted">Searching…</p>}
           {!loading && results.length === 0 && (
-            <p className="px-2x py-2x text-xs text-ink-muted">
+            <p className="px-2x py-2x text-caption text-ink-muted">
               {query ? 'No trains found' : 'Type a train number or name'}
             </p>
           )}
@@ -156,13 +163,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
                 i === selected && 'bg-ink/10'
               )}
             >
-              <span className="shrink-0 rounded-md bg-accent/20 px-1x py-0.5x text-xs font-semibold tabular-nums text-accent">
+              <span className="shrink-0 rounded-md bg-accent/20 px-1x py-0.5x text-caption font-semibold tabular-nums text-accent">
                 {r.number}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm text-ink">{r.name}</span>
+                <span className="block break-words text-body text-ink">{r.name}</span>
                 {r.origin.name && r.destination.name && (
-                  <span className="block truncate text-xs text-ink-muted">
+                  <span className="block break-words text-caption text-ink-muted">
                     {r.origin.name} → {r.destination.name}
                   </span>
                 )}
@@ -172,7 +179,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
           ))}
         </div>
 
-        <div className="flex items-center gap-2x border-t border-ink/10 px-3x py-1x text-[10px] text-ink-muted">
+        <div className="hidden items-center gap-2x border-t border-ink/10 px-3x py-1x text-label normal-case tracking-normal text-ink-muted sm:flex">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span className="ml-auto">⌘K anywhere</span>

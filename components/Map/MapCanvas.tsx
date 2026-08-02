@@ -7,9 +7,19 @@ import { maplibregl } from '@/lib/maplibre';
 import { LiveJourney, Station } from '@/types/train';
 import { getMapStyleUrl } from './mapStyle';
 import { TrainMarker } from './TrainMarker';
-import { createRoot } from 'react-dom/client';
+import { createRoot, Root } from 'react-dom/client';
 import { TimeTheme } from '@/lib/useTimeTheme';
 import { WeatherSnapshot } from '@/types/geo';
+
+// useJourney refetches every 18s; gliding the marker over (roughly) that
+// window makes it look continuously in motion instead of frozen-then-jumping.
+// Capped below the poll interval so a late-arriving update never leaves the
+// marker mid-tween when the next one lands.
+const MARKER_TWEEN_MS = 15_000;
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
 
 interface MapCanvasProps {
   journey: LiveJourney;
@@ -17,10 +27,18 @@ interface MapCanvasProps {
   weather?: WeatherSnapshot | null;
 }
 
+// Matches tailwind.config.ts `status` + `accent` tokens — kept as literal hex
+// because MapLibre paint properties render to canvas, not the DOM, so they
+// can't read CSS custom properties.
+const STATUS_ON_TIME = '#22C55E';
+const STATUS_MINOR_DELAY = '#F59E0B';
+const STATUS_HEAVY_DELAY = '#EF4444';
+const ACCENT = '#4F46E5';
+
 function statusToRouteColor(delayMinutes: number): string {
-  if (delayMinutes >= 15) return '#FF3B30';
-  if (delayMinutes >= 1) return '#FF9F0A';
-  return '#34C759';
+  if (delayMinutes >= 15) return STATUS_HEAVY_DELAY;
+  if (delayMinutes >= 1) return STATUS_MINOR_DELAY;
+  return STATUS_ON_TIME;
 }
 
 function splitPolylineAtPoint(
@@ -42,16 +60,38 @@ function splitPolylineAtPoint(
   return { covered: coords.slice(0, bestIdx + 1), planned: coords.slice(bestIdx) };
 }
 
+/**
+ * Snapped/simplified geometry can carry consecutive duplicate points; a
+ * zero-length segment crashes MapLibre's dash renderer ("null 'y'" in
+ * setConstantDashPositions), so strip them before the polyline reaches the map.
+ */
+function dedupePolyline(coords: [number, number][]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const c of coords) {
+    const prev = out[out.length - 1];
+    if (!prev || prev[0] !== c[0] || prev[1] !== c[1]) out.push(c);
+  }
+  return out;
+}
+
+/** A LineString with fewer than 2 points has no drawable segment. */
+function isDrawableLine(coords: [number, number][]): boolean {
+  return coords.length >= 2 && coords.every(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
+}
+
 export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
+  const markerRootRef = useRef<Root | null>(null);
   const weatherMarkerRef = useRef<Marker | null>(null);
-  const dashAnimRef = useRef<number | null>(null);
+  const dashTimerRef = useRef<number | null>(null);
   const journeyRef = useRef(journey);
   journeyRef.current = journey;
   const weatherRef = useRef(weather);
   weatherRef.current = weather;
+  const displayedPosRef = useRef<[number, number] | null>(null);
+  const tweenFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -72,59 +112,91 @@ export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
       const loc = j.currentLocation;
 
       if (j.routeGeometry && j.routeGeometry.length > 1) {
-        const { covered, planned } = splitPolylineAtPoint(j.routeGeometry, loc.lng, loc.lat);
+        const route = dedupePolyline(j.routeGeometry);
+        const { covered, planned } = splitPolylineAtPoint(route, loc.lng, loc.lat);
 
-        map.addSource('route-covered', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: { type: 'LineString', coordinates: covered },
-          },
-        });
-        map.addLayer({
-          id: 'route-covered-glow',
-          type: 'line',
-          source: 'route-covered',
-          paint: { 'line-color': routeColor, 'line-width': 8, 'line-opacity': 0.25 },
-        });
-        map.addLayer({
-          id: 'route-covered',
-          type: 'line',
-          source: 'route-covered',
-          paint: { 'line-color': routeColor, 'line-width': 4 },
-        });
+        if (isDrawableLine(covered) && isDrawableLine(planned)) {
+          map.addSource('route-covered', {
+            type: 'geojson',
+            lineMetrics: true,
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: covered },
+            },
+          });
+          // Gradient from the journey's start color to its live status color,
+          // sweeping along ['line-progress'] — the glowing origin-to-now
+          // traveled path instead of a flat single-color line.
+          const coveredGradient: maplibregl.ExpressionSpecification = [
+            'interpolate',
+            ['linear'],
+            ['line-progress'],
+            0,
+            ACCENT,
+            1,
+            routeColor,
+          ];
+          map.addLayer({
+            id: 'route-covered-glow',
+            type: 'line',
+            source: 'route-covered',
+            paint: { 'line-gradient': coveredGradient, 'line-width': 8, 'line-opacity': 0.3 },
+          });
+          map.addLayer({
+            id: 'route-covered',
+            type: 'line',
+            source: 'route-covered',
+            paint: { 'line-gradient': coveredGradient, 'line-width': 4 },
+          });
 
-        map.addSource('route-planned', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: { type: 'LineString', coordinates: planned },
-          },
-        });
-        map.addLayer({
-          id: 'route-planned',
-          type: 'line',
-          source: 'route-planned',
-          paint: {
-            'line-color': '#FFFFFF',
-            'line-width': 3,
-            'line-dasharray': [0.35, 1.85],
-            'line-opacity': 0.7,
-          },
-        });
+          map.addSource('route-planned', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: planned },
+            },
+          });
+          map.addLayer({
+            id: 'route-planned',
+            type: 'line',
+            source: 'route-planned',
+            paint: {
+              'line-color': '#FFFFFF',
+              'line-width': 3,
+              'line-dasharray': [0.35, 1.85],
+              'line-opacity': 0.7,
+            },
+          });
 
-        const DASH_PERIOD = 2.2;
-        const animateDashes = () => {
-          const m = mapRef.current;
-          if (!m || !m.getLayer('route-planned')) return;
-          const phase = (Date.now() / 1000) % DASH_PERIOD;
-          const fill = 0.35 + 1.5 * (phase / DASH_PERIOD);
-          m.setPaintProperty('route-planned', 'line-dasharray', [fill, DASH_PERIOD - fill]);
-          dashAnimRef.current = requestAnimationFrame(animateDashes);
-        };
-        animateDashes();
+          // Marching-ants from a FIXED phase set: distinct line-dasharray
+          // values consume non-evicted slots in MapLibre's line atlas, so
+          // per-frame floats overflow it and crash setConstantDashPositions.
+          const DASH_PHASES = 8;
+          const DASH_PHASE_MS = 300;
+          let phaseIndex = 0;
+          const animateDashes = () => {
+            const m = mapRef.current;
+            if (!m || !m.getLayer('route-planned')) {
+              if (dashTimerRef.current !== null) {
+                clearInterval(dashTimerRef.current);
+                dashTimerRef.current = null;
+              }
+              return;
+            }
+            try {
+              phaseIndex = (phaseIndex + 1) % DASH_PHASES;
+              const fill = 0.3 + 1.2 * (phaseIndex / (DASH_PHASES - 1));
+              m.setPaintProperty('route-planned', 'line-dasharray', [fill, 2.1 - fill]);
+            } catch {
+              // Layout changes can race with map removal; never let the
+              // animation loop throw.
+            }
+          };
+          dashTimerRef.current = window.setInterval(animateDashes, DASH_PHASE_MS);
+          animateDashes();
+        }
       }
 
       const stationFeatures = j.stations
@@ -176,13 +248,16 @@ export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
       }
 
       const el = document.createElement('div');
-      createRoot(el).render(
+      const root = createRoot(el);
+      root.render(
         <TrainMarker
           heading={j.currentLocation.heading}
           isMoving={j.currentLocation.isMoving}
           ghost={j.currentLocation.positionSource === 'projected'}
         />
       );
+      markerRootRef.current = root;
+      displayedPosRef.current = [j.currentLocation.lng, j.currentLocation.lat];
       markerRef.current = new maplibregl.Marker({ element: el })
         .setLngLat([j.currentLocation.lng, j.currentLocation.lat])
         .addTo(map);
@@ -193,12 +268,14 @@ export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
     });
 
     return () => {
-      if (dashAnimRef.current !== null) cancelAnimationFrame(dashAnimRef.current);
+      if (dashTimerRef.current !== null) clearInterval(dashTimerRef.current);
+      if (tweenFrameRef.current !== null) cancelAnimationFrame(tweenFrameRef.current);
       markerRef.current?.remove();
       weatherMarkerRef.current?.remove();
       map.remove();
       mapRef.current = null;
       markerRef.current = null;
+      markerRootRef.current = null;
       weatherMarkerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -215,23 +292,53 @@ export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
   }
 
   useEffect(() => {
-    markerRef.current?.setLngLat([journey.currentLocation.lng, journey.currentLocation.lat]);
-    mapRef.current?.easeTo({ center: [journey.currentLocation.lng, journey.currentLocation.lat], duration: 800 });
+    const target: [number, number] = [journey.currentLocation.lng, journey.currentLocation.lat];
+
+    // The marker's React root is only mounted once; re-render it here so
+    // heading/motion/ghost state actually updates as new journey data lands
+    // instead of staying frozen at whatever it was on first paint.
+    markerRootRef.current?.render(
+      <TrainMarker
+        heading={journey.currentLocation.heading}
+        isMoving={journey.currentLocation.isMoving}
+        ghost={journey.currentLocation.positionSource === 'projected'}
+      />
+    );
+
+    if (tweenFrameRef.current !== null) {
+      cancelAnimationFrame(tweenFrameRef.current);
+      tweenFrameRef.current = null;
+    }
+    const start = displayedPosRef.current ?? target;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - startTime) / MARKER_TWEEN_MS);
+      const pos: [number, number] = [lerp(start[0], target[0], t), lerp(start[1], target[1], t)];
+      displayedPosRef.current = pos;
+      markerRef.current?.setLngLat(pos);
+      tweenFrameRef.current = t < 1 ? requestAnimationFrame(tick) : null;
+    };
+    tweenFrameRef.current = requestAnimationFrame(tick);
+
+    mapRef.current?.easeTo({ center: target, duration: 800 });
 
     const map = mapRef.current;
     if (map?.loaded() && journey.routeGeometry && journey.routeGeometry.length > 1) {
       const loc = journey.currentLocation;
-      const { covered, planned } = splitPolylineAtPoint(journey.routeGeometry, loc.lng, loc.lat);
-      (map.getSource('route-covered') as maplibregl.GeoJSONSource | undefined)?.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: covered },
-      });
-      (map.getSource('route-planned') as maplibregl.GeoJSONSource | undefined)?.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: planned },
-      });
+      const route = dedupePolyline(journey.routeGeometry);
+      const { covered, planned } = splitPolylineAtPoint(route, loc.lng, loc.lat);
+      if (isDrawableLine(covered) && isDrawableLine(planned)) {
+        (map.getSource('route-covered') as maplibregl.GeoJSONSource | undefined)?.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: covered },
+        });
+        (map.getSource('route-planned') as maplibregl.GeoJSONSource | undefined)?.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: planned },
+        });
+      }
     }
 
     const source = map?.getSource('station-dots') as maplibregl.GeoJSONSource | undefined;
@@ -270,11 +377,11 @@ export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
 function stationDotColor(station: Station, index: number, journey: LiveJourney): string {
   const isOrigin = index === 0;
   const isDest = index === journey.stations.length - 1;
-  if (journey.status === 'not_started' && isOrigin) return '#0A84FF';
-  if (journey.status === 'completed' && isDest) return '#34C759';
-  if (isOrigin) return '#34C759';
-  if (isDest) return '#FF9F0A';
+  if (journey.status === 'not_started' && isOrigin) return ACCENT;
+  if (journey.status === 'completed' && isDest) return STATUS_ON_TIME;
+  if (isOrigin) return STATUS_ON_TIME;
+  if (isDest) return STATUS_MINOR_DELAY;
   if (station.status === 'passed') return 'rgba(152, 152, 160, 0.45)';
-  if (station.status === 'current') return '#0A84FF';
+  if (station.status === 'current') return ACCENT;
   return 'rgba(174, 174, 178, 0.7)';
 }

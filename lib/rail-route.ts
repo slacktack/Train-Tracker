@@ -7,7 +7,7 @@ interface RailNode {
 }
 
 const LEG_PADDING_DEG = 0.35;
-const SNAP_DIST_KM = 25;
+const SNAP_DIST_KM = 40;
 const RAIL_ROUTE_TTL_S = 7 * 24 * 3600;
 const MAX_LEGS = 12;
 const CONCURRENCY = 4;
@@ -205,6 +205,8 @@ export async function getRailRouteGeometry(
   try {
     const railRoute: [number, number][] = [];
     let usedRail = false;
+    let railLegs = 0;
+    const totalLegs = legs.length;
 
     const bboxes = legs.map((leg) => ({
       leg,
@@ -244,6 +246,7 @@ export async function getRailRouteGeometry(
       const path = legBetween(ways, from, to);
       if (path && path.length >= 2) {
         usedRail = true;
+        railLegs += 1;
         if (railRoute.length > 0) {
           const tail = railRoute[railRoute.length - 1];
           const head = path[0];
@@ -259,6 +262,9 @@ export async function getRailRouteGeometry(
 
     const result = dedupe(railRoute);
     if (result.length < 2) return null;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[rail-route] ${trainNumber}: ${railLegs}/${totalLegs} legs used real rail geometry`);
+    }
     if (usedRail) {
       await setCached(cacheKey, result, RAIL_ROUTE_TTL_S);
     }

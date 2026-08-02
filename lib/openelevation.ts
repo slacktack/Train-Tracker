@@ -11,6 +11,11 @@ export function sampleRouteCoordinates(
   return routeGeometry.filter((_, i) => i % step === 0);
 }
 
+/**
+ * Elevation profile via Open-Meteo's free elevation API (no key, batch
+ * lookup, ~300ms). The legacy open-elevation.com service this replaced is
+ * dead — requests hung or returned empty profiles.
+ */
 export async function getElevationProfile(
   routeGeometry: [number, number][],
   totalDistanceKm: number
@@ -18,27 +23,29 @@ export async function getElevationProfile(
   const sampled = sampleRouteCoordinates(routeGeometry, 40);
   if (sampled.length === 0) return [];
 
-  const locations = sampled.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
+  const lats = sampled.map(([, lat]) => lat.toFixed(5)).join(',');
+  const lngs = sampled.map(([lng]) => lng.toFixed(5)).join(',');
+  const url = `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`;
 
   try {
-    const res = await fetch('https://api.open-elevation.com/api/v1/lookup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locations }),
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(8_000),
       next: { revalidate: 86400 },
     } as RequestInit);
-    if (!res.ok) throw new Error(`Open-Elevation error: ${res.status}`);
-    const json = await res.json();
-    const results: { latitude: number; longitude: number; elevation: number }[] = json.results;
+    if (!res.ok) throw new Error(`Open-Meteo elevation error: ${res.status}`);
+    const json = (await res.json()) as { elevation: number[] };
+    if (!Array.isArray(json.elevation) || json.elevation.length !== sampled.length) {
+      throw new Error('Open-Meteo elevation: unexpected response shape');
+    }
 
-    return results.map((r, i) => ({
-      lat: r.latitude,
-      lng: r.longitude,
-      elevationM: Math.round(r.elevation),
-      distanceKm: Math.round((i / (results.length - 1 || 1)) * totalDistanceKm),
+    return json.elevation.map((el, i) => ({
+      lat: sampled[i][1],
+      lng: sampled[i][0],
+      elevationM: Math.round(el),
+      distanceKm: Math.round((i / (json.elevation.length - 1 || 1)) * totalDistanceKm),
     }));
   } catch (e) {
-    console.warn('Open-Elevation fetch failed:', e);
+    console.warn('Open-Meteo elevation fetch failed:', e);
     return [];
   }
 }

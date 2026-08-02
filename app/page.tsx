@@ -13,6 +13,7 @@ import { StationBoard } from '@/components/Home/StationBoard';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTimeTheme } from '@/lib/useTimeTheme';
+import { useJourney } from '@/hooks/useJourney';
 
 const POLL_INTERVAL_MS = 30_000;
 const CLOCK_TICK_MS = 30_000;
@@ -71,6 +72,7 @@ export default function HomePage() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const { theme } = useTimeTheme();
   const router = useRouter();
+  const { data: selectedJourney } = useJourney(selected?.n ?? '');
   const selectedRef = useRef<LiveTrain | null>(null);
   selectedRef.current = selected;
 
@@ -138,6 +140,7 @@ export default function HomePage() {
           setSelected(null);
           setSelectedStation(s);
         }}
+        routeGeometry={selected ? selectedJourney?.routeGeometry ?? null : null}
         theme={theme}
       />
 
@@ -145,51 +148,70 @@ export default function HomePage() {
       <div className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 h-36 bg-gradient-to-t ${bottomShade} to-transparent`} />
 
       <header className="absolute inset-x-0 top-[max(1rem,env(safe-area-inset-top))] z-20 flex flex-col items-center gap-1x px-2x sm:px-3x">
-        <div className="glass-strong flex w-full max-w-3xl items-center gap-2x rounded-card px-2x py-1x">
-          <div className="flex shrink-0 items-center gap-1.5x">
-            <span className="flex h-9 w-9 items-center justify-center rounded-pill bg-accent/15">
-              <TrainFront className="h-4 w-4 text-accent" aria-hidden />
-            </span>
-            <div className="hidden sm:block">
-              <p className="font-display text-sm font-semibold leading-none">Train Tracker</p>
-              <p className="mt-1 text-[10px] uppercase tracking-wider text-ink-muted">India · Live</p>
+        <div className="glass-strong flex w-full max-w-3xl flex-col gap-1x rounded-card px-2x py-1x sm:flex-row sm:items-center sm:gap-2x">
+          <div className="flex items-center gap-2x">
+            <div className="flex shrink-0 items-center gap-1.5x">
+              <span className="flex h-9 w-9 items-center justify-center rounded-pill bg-accent/15">
+                <TrainFront className="h-4 w-4 text-accent" aria-hidden />
+              </span>
+              <div className="hidden sm:block">
+                <p className="font-display text-subhead leading-none">Train Tracker</p>
+                <p className="mt-1 text-label normal-case tracking-wider text-ink-muted">India · Live</p>
+              </div>
+            </div>
+
+            <div className="hidden shrink-0 text-right lg:block">
+              {istNow && (
+                <>
+                  <p className="font-display text-subhead leading-none tabular-nums">{formatUpdated(istNow)}</p>
+                  <p className="mt-1 text-label normal-case tracking-wider text-ink-muted">IST</p>
+                </>
+              )}
+            </div>
+
+            <div className="ml-auto flex shrink-0 items-center gap-1.5x sm:hidden">
+              {count !== null && (
+                <div className="flex shrink-0 items-center gap-1x rounded-pill border border-status-onTime/30 bg-status-onTime/10 px-2x py-1x">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-onTime opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-onTime" />
+                  </span>
+                  <span className="font-display text-subhead leading-none tabular-nums">
+                    {new Intl.NumberFormat('en-IN').format(count)}
+                  </span>
+                </div>
+              )}
+              <ThemeToggle />
             </div>
           </div>
 
           <button
             onClick={() => setPaletteOpen(true)}
-            className="flex h-9 min-w-0 flex-1 items-center gap-1.5x rounded-pill border border-ink/10 bg-surface-raised/60 px-2x text-sm text-ink-muted transition-colors hover:border-ink/25 hover:text-ink"
+            className="flex h-9 min-w-0 flex-1 items-center gap-1.5x rounded-pill border border-ink/10 bg-surface-raised/60 px-2x text-body text-ink-muted transition-colors hover:border-ink/25 hover:text-ink"
           >
             <Search className="h-4 w-4 shrink-0" aria-hidden />
-            <span className="flex-1 truncate text-left">Search train number or name</span>
-            <kbd className="rounded-md border border-ink-muted/20 bg-surface-raised/60 px-1x py-0.5x text-[10px] font-medium text-ink-muted">
+            <span className="flex-1 text-left">Search train number or name</span>
+            <kbd className="hidden rounded-md border border-ink-muted/20 bg-surface-raised/60 px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted sm:inline-block">
               ⌘K
             </kbd>
           </button>
 
-          <div className="hidden shrink-0 text-right lg:block">
-            {istNow && (
-              <>
-                <p className="font-display text-base font-semibold leading-none tabular-nums">{formatUpdated(istNow)}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-wider text-ink-muted">IST</p>
-              </>
-            )}
-          </div>
-
           {count !== null && (
-            <div className="flex shrink-0 items-center gap-1x rounded-pill border border-status-onTime/30 bg-status-onTime/10 px-2x py-1x">
+            <div className="hidden shrink-0 items-center gap-1x rounded-pill border border-status-onTime/30 bg-status-onTime/10 px-2x py-1x sm:flex">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-onTime opacity-75" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-onTime" />
               </span>
-              <span className="font-display text-sm font-semibold leading-none tabular-nums">
+              <span className="font-display text-subhead leading-none tabular-nums">
                 {new Intl.NumberFormat('en-IN').format(count)}
               </span>
-              <span className="hidden text-[10px] uppercase tracking-wider text-ink-muted sm:inline">live</span>
+              <span className="hidden text-label normal-case tracking-wider text-ink-muted sm:inline">live</span>
             </div>
           )}
 
-          <ThemeToggle />
+          <div className="hidden sm:block">
+            <ThemeToggle />
+          </div>
         </div>
 
         {trains.length > 0 && (
@@ -214,7 +236,7 @@ export default function HomePage() {
       )}
 
       {(selected || selectedStation) && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center p-3x pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-auto sm:left-3x sm:top-1/2 sm:w-[min(26rem,42vw)] sm:-translate-y-1/2 sm:justify-start sm:p-0 sm:pl-3x">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex items-end justify-center sm:inset-x-auto sm:bottom-auto sm:left-3x sm:top-1/2 sm:w-[min(26rem,42vw)] sm:-translate-y-1/2 sm:justify-start sm:p-0 sm:pl-3x">
           <div className="pointer-events-auto w-full max-w-xl sm:max-w-none">
             <AnimatePresence mode="wait">
               {selected ? (

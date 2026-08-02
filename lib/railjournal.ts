@@ -41,7 +41,11 @@ const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
 const COOKIE_TTL_MS = 25 * 60 * 1000; // rj_sid Max-Age is 1800s; refresh early
-const FEED_TTL_MS = 10_000; // active-trains feed poll interval (map friendly)
+// Home page polls /api/active-trains every 30s (POLL_INTERVAL_MS in app/page.tsx);
+// a cache window shorter than that meant search almost always missed the cache
+// and paid for a full origin fetch. 35s keeps the cache warm across that poll
+// cadence without making the map any less fresh than its own poll interval.
+const FEED_TTL_MS = 35_000;
 const STATION_COORDS_TTL_MS = 6 * 60 * 60 * 1000; // station lat/lon barely change; refresh to grow coverage
 const FETCH_TIMEOUT_MS = 10_000;
 
@@ -800,7 +804,12 @@ export function normaliseJourney(info: RailJournalTrainInfo, options: NormaliseO
   let trainLng: number;
   let heading: number;
   let positionSource: LiveLocation['positionSource'];
-  if (gpsTrain && Number.isFinite(gpsTrain.lat) && Number.isFinite(gpsTrain.lon)) {
+  // A train number can show up in the live GPS feed before its authoritative
+  // status says the journey has begun (a positioning move, the previous
+  // day's returning rake, feed lag) — trusting that GPS fix here would put
+  // the marker mid-route while the card still (correctly) says "not started".
+  // Origin-station coordinates are the honest answer until status flips.
+  if (status !== 'not_started' && gpsTrain && Number.isFinite(gpsTrain.lat) && Number.isFinite(gpsTrain.lon)) {
     trainLat = gpsTrain.lat;
     trainLng = gpsTrain.lon;
     heading = gpsTrain.heading ?? 45;
@@ -823,7 +832,7 @@ export function normaliseJourney(info: RailJournalTrainInfo, options: NormaliseO
     positionSource = 'none';
   }
 
-  const speedKmh = Math.round(info.loco_speed || gpsTrain?.speedKmh || 0);
+  const speedKmh = status === 'not_started' ? 0 : Math.round(info.loco_speed || gpsTrain?.speedKmh || 0);
   const isMoving = status === 'running' || status === 'delayed' || speedKmh > 0;
 
   const origin = stations[0];
@@ -1095,18 +1104,16 @@ function buildJourneyFromSchedule(
   const origin = stations[0];
   const destination = stations[stations.length - 1];
   const totalDistanceKm = destination?.distanceKm ?? 0;
-  const gpsTrain = activeTrains.find((t) => t.train_no === schedule.trainNumber);
 
   const routeGeometry = buildRouteGeometry(stations, null, null);
 
   let trainLat: number;
   let trainLng: number;
   let positionSource: LiveLocation['positionSource'];
-  if (gpsTrain && Number.isFinite(gpsTrain.lat) && Number.isFinite(gpsTrain.lon)) {
-    trainLat = gpsTrain.lat;
-    trainLng = gpsTrain.lon;
-    positionSource = 'gps';
-  } else if (origin?.lat && origin?.lng) {
+  // This path always returns status: 'not_started' — a live-feed GPS fix for
+  // the train number here would be a positioning move or feed lag, not the
+  // journey actually running, so origin-station coordinates are what's true.
+  if (origin?.lat && origin?.lng) {
     trainLat = origin.lat;
     trainLng = origin.lng;
     positionSource = 'station';

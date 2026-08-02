@@ -21,7 +21,8 @@ export async function GET(
 
     const chart = await getCoachChart(trainNumber, station, date);
     if (!chart) {
-      return NextResponse.json({ error: 'Coach chart not available' }, { status: 404 });
+      // 200 + null: "no chart" is normal — 404s would spam the console.
+      return NextResponse.json(null);
     }
     await setCached(cacheKey, chart, 10 * 60);
     return NextResponse.json(chart);

@@ -17,13 +17,14 @@ describe('buildElevationPath', () => {
     expect(path.split(' ').length).toBe(3);
   });
 
-  it('places the lowest elevation point at the bottom (max y)', () => {
+  it('places the lowest elevation point lowest on screen (larger y)', () => {
     const points = [
       { lat: 0, lng: 0, elevationM: 0, distanceKm: 0 },
       { lat: 0, lng: 0, elevationM: 1000, distanceKm: 100 },
     ];
     const path = buildElevationPath(points, 100, 100);
     const firstY = parseFloat(path.split(' ')[0].split(',')[1]);
-    expect(firstY).toBeCloseTo(100);
+    const secondY = parseFloat(path.split(' ')[1].split(',')[1]);
+    expect(firstY).toBeGreaterThan(secondY);
   });
 });

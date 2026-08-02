@@ -56,11 +56,11 @@ export function ContextCard(props: ContextCardProps) {
       <div className={CARD_CLASS}>
         <div className="flex items-center gap-1x">
           <Icon className="h-4 w-4 text-ink-muted" aria-hidden />
-          <p className="text-xs text-ink-muted">{TERRAIN_LABELS[feature.type]}</p>
+          <p className="text-caption text-ink-muted">{TERRAIN_LABELS[feature.type]}</p>
         </div>
-        <p className="truncate text-base font-semibold">{feature.name}</p>
+        <p className="break-words text-subhead leading-snug">{feature.name}</p>
         {feature.distanceKm !== undefined && (
-          <p className="text-xs tabular-nums text-ink-muted">{feature.distanceKm} km ahead</p>
+          <p className="text-caption tabular-nums text-ink-muted">{feature.distanceKm} km ahead</p>
         )}
       </div>
     );
@@ -73,13 +73,13 @@ export function ContextCard(props: ContextCardProps) {
       <div className={CARD_CLASS}>
         <div className="flex items-center gap-1x">
           <Icon className="h-4 w-4 text-status-minorDelay" aria-hidden />
-          <p className="truncate text-xs text-ink-muted">{weather.condition}</p>
+          <p className="break-words text-caption leading-snug text-ink-muted">{weather.condition}</p>
         </div>
         <div className="flex items-baseline gap-0.5x">
-          <p className="text-2xl font-semibold tabular-nums">{weather.tempC}°</p>
-          <p className="text-sm text-ink-muted">C</p>
+          <p className="text-headline tabular-nums">{weather.tempC}°</p>
+          <p className="text-body text-ink-muted">C</p>
         </div>
-        <div className="flex items-center gap-2x text-xs tabular-nums text-ink-muted">
+        <div className="flex items-center gap-2x text-caption tabular-nums text-ink-muted">
           <span className="flex items-center gap-0.5x">
             <Wind className="h-3.5 w-3.5" aria-hidden />
             {weather.windKmh} km/h
@@ -90,7 +90,7 @@ export function ContextCard(props: ContextCardProps) {
           </span>
         </div>
         {weather.isRainingAhead && (
-          <p className="text-xs font-medium text-status-minorDelay">Rain ahead</p>
+          <p className="text-caption font-medium text-status-minorDelay">Rain ahead</p>
         )}
       </div>
     );
@@ -107,11 +107,11 @@ export function ContextCard(props: ContextCardProps) {
         ) : (
           <CloudSun className="h-4 w-4 text-status-onTime" aria-hidden />
         )}
-        <p className="text-xs text-ink-muted">
+        <p className="text-caption text-ink-muted">
           {sun.isNight ? 'Night journey' : sun.isGoldenHour ? 'Golden hour' : 'Daytime'}
         </p>
       </div>
-      <div className="flex items-center gap-2x text-sm tabular-nums">
+      <div className="flex items-center gap-2x text-body tabular-nums">
         <span className="flex items-center gap-1x">
           <Sunrise className="h-4 w-4 text-ink-muted" aria-hidden />
           {sun.sunrise}

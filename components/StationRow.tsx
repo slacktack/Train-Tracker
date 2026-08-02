@@ -7,7 +7,7 @@ interface StationRowProps {
 
 export function StationRow({ station }: StationRowProps) {
   return (
-    <div className="relative flex items-center justify-between py-2x pl-5x">
+    <div className="relative flex items-center justify-between py-2x pl-6x">
       {/* Glowing vertical rail: fades out at the top/bottom ends */}
       <span
         className="absolute bottom-0 left-[4px] top-0 w-[2px] bg-gradient-to-b from-ink-muted/40 via-ink-muted/15 to-ink-muted/40"
@@ -36,19 +36,19 @@ export function StationRow({ station }: StationRowProps) {
         <div className="min-w-0">
           <p
             className={cn(
-              'truncate font-display text-sm font-medium',
+              'break-words font-display text-body font-medium leading-snug',
               station.status === 'passed' && 'text-ink-muted/70'
             )}
           >
             {station.name}
           </p>
-          {station.platform && <p className="text-xs text-ink-muted">Platform {station.platform}</p>}
+          {station.platform && <p className="text-caption text-ink-muted">Platform {station.platform}</p>}
         </div>
       </div>
       <div className="shrink-0 text-right">
-        <p className="font-mono text-sm tabular-nums">{station.actualArrival ?? station.scheduledArrival}</p>
+        <p className="font-mono text-body tabular-nums">{station.actualArrival ?? station.scheduledArrival}</p>
         {station.delayMinutes > 0 && (
-          <p className="font-mono text-xs text-status-minorDelay">+{station.delayMinutes}m</p>
+          <p className="font-mono text-caption text-status-minorDelay">+{station.delayMinutes}m</p>
         )}
       </div>
     </div>

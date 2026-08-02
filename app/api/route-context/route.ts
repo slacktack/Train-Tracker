@@ -21,10 +21,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(cached);
   }
 
-  const [terrainFeatures, elevationProfile] = await Promise.all([
+  // Elevation is fast (~300ms) and powers the chart — never let the slow
+  // Overpass terrain lookup block it. Terrain resolves in the background race
+  // and arrives as soon as it's ready (or as an empty list after 6s).
+  const elevationProfile = await getElevationProfile(routeGeometry, totalDistanceKm);
+  const terrainFeatures = await Promise.race([
     getTerrainFeatures(routeGeometry),
-    getElevationProfile(routeGeometry, totalDistanceKm),
-  ]);
+    new Promise<TerrainFeature[]>((resolve) => setTimeout(() => resolve([]), 6_000)),
+  ]).catch(() => [] as TerrainFeature[]);
 
   const response: RouteContextResponse = { terrainFeatures, elevationProfile };
   const isLikelyFailure = terrainFeatures.length === 0 && elevationProfile.length === 0;

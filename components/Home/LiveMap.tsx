@@ -43,9 +43,18 @@ interface LiveMapProps {
   onSelectStation: (station: StationGroup) => void;
   theme: TimeTheme;
   selectedNumber?: string | null;
+  routeGeometry?: [number, number][] | null;
 }
 
-export function LiveMap({ trains, stations, onSelect, onSelectStation, theme, selectedNumber = null }: LiveMapProps) {
+export function LiveMap({
+  trains,
+  stations,
+  onSelect,
+  onSelectStation,
+  theme,
+  selectedNumber = null,
+  routeGeometry = null,
+}: LiveMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const onSelectRef = useRef(onSelect);
@@ -58,8 +67,11 @@ export function LiveMap({ trains, stations, onSelect, onSelectStation, theme, se
   stationsRef.current = stations;
   const selectedNumberRef = useRef<string | null>(selectedNumber);
   selectedNumberRef.current = selectedNumber;
+  const routeGeometryRef = useRef<[number, number][] | null>(null);
+  routeGeometryRef.current = routeGeometry;
   const pushTrainsRef = useRef<() => void>(() => {});
   const pushStationsRef = useRef<() => void>(() => {});
+  const pushRouteRef = useRef<() => void>(() => {});
   const savedViewRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
 
   useEffect(() => {
@@ -100,6 +112,16 @@ export function LiveMap({ trains, stations, onSelect, onSelectStation, theme, se
           properties: { code: s.code, name: s.name, count: s.count },
           geometry: { type: 'Point' as const, coordinates: [s.lon, s.lat] },
         })),
+      });
+    };
+
+    const pushRoute = () => {
+      const source = map.getSource('selected-route') as maplibregl.GeoJSONSource | null;
+      if (!source) return;
+      source.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: routeGeometryRef.current ?? [] },
       });
     };
 
@@ -157,6 +179,25 @@ export function LiveMap({ trains, stations, onSelect, onSelectStation, theme, se
           'circle-color': '#8E8E93',
           'circle-opacity': 0.18,
           'circle-blur': 0.6,
+        },
+      });
+
+      map.addSource('selected-route', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+      });
+
+      map.addLayer({
+        id: 'selected-route-line',
+        type: 'line',
+        source: 'selected-route',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          // Matches --accent in app/globals.css; MapLibre paint values are canvas
+          // colors, not CSS, so the custom property can't be read directly here.
+          'line-color': theme === 'dark' ? '#818CFF' : '#4F46E5',
+          'line-width': 3,
+          'line-opacity': 0.85,
         },
       });
 
@@ -329,10 +370,12 @@ export function LiveMap({ trains, stations, onSelect, onSelectStation, theme, se
 
       pushTrains();
       pushStations();
+      pushRoute();
     });
 
     pushTrainsRef.current = pushTrains;
     pushStationsRef.current = pushStations;
+    pushRouteRef.current = pushRoute;
 
     return () => {
       savedViewRef.current = {
@@ -351,6 +394,10 @@ export function LiveMap({ trains, stations, onSelect, onSelectStation, theme, se
   useEffect(() => {
     pushStationsRef.current();
   }, [stations]);
+
+  useEffect(() => {
+    pushRouteRef.current();
+  }, [routeGeometry]);
 
   // Keep the selected glow + ring tracking whichever train is open.
   useEffect(() => {

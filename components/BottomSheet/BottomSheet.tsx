@@ -16,8 +16,9 @@ export function BottomSheet({ peek, half }: BottomSheetProps) {
   const controls = useAnimation();
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
   // Sheet is full viewport height; snaps translate it down. Clamp the drag so it
-  // can never rise above the 'half' position (half screen is the maximum).
-  const topLimit = (1 - SNAP_HEIGHTS.half) * viewportHeight;
+  // can never rise above the 'full' position (95% is the maximum, below the
+  // status bar).
+  const topLimit = (1 - SNAP_HEIGHTS.full) * viewportHeight;
   const bottomLimit = (1 - SNAP_HEIGHTS.peek) * viewportHeight;
 
   useEffect(() => {
@@ -52,7 +53,7 @@ export function BottomSheet({ peek, half }: BottomSheetProps) {
       <div className="mx-auto mt-1x h-1 w-10 shrink-0 rounded-pill bg-ink-muted/40" />
       <div className="overflow-y-auto px-3x pb-[calc(env(safe-area-inset-bottom)+24px)] pt-2x">
         {peek}
-        {sheetState === 'half' && half}
+        {sheetState !== 'peek' && half}
       </div>
     </motion.div>
   );
