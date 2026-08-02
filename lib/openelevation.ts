@@ -26,7 +26,7 @@ export async function getElevationProfile(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ locations }),
       next: { revalidate: 86400 },
-    } as any);
+    } as RequestInit);
     if (!res.ok) throw new Error(`Open-Elevation error: ${res.status}`);
     const json = await res.json();
     const results: { latitude: number; longitude: number; elevation: number }[] = json.results;

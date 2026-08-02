@@ -42,7 +42,8 @@ const config: Config = {
         glass: '24px',
       },
       fontFamily: {
-        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'var(--font-geist-sans)', 'system-ui', 'sans-serif'],
       },
     },
   },

@@ -3,27 +3,105 @@
 @tailwind utilities;
 
 :root {
-  --surface: 250 250 252;
+  color-scheme: light;
+  --surface: 244 246 250;
   --surface-raised: 255 255 255;
   --ink: 17 17 20;
   --ink-muted: 108 108 116;
   --accent: 10 132 255;
+  --glass-border: 0 0 0;
 }
 
 .dark {
-  --surface: 10 10 12;
-  --surface-raised: 24 24 28;
+  color-scheme: dark;
+  --surface: 9 10 14;
+  --surface-raised: 22 24 30;
   --ink: 245 245 247;
   --ink-muted: 152 152 160;
   --accent: 64 156 255;
+  --glass-border: 255 255 255;
 }
 
 html,
 body {
   @apply bg-surface text-ink;
   font-variant-numeric: tabular-nums;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Subtle ambient gradient so the map page never feels flat */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgb(var(--accent) / 0.08), transparent 60%),
+    radial-gradient(900px 500px at 90% 110%, rgb(var(--accent) / 0.06), transparent 60%);
 }
 
 .glass {
-  @apply bg-surface-raised/70 backdrop-blur-glass shadow-glass;
+  @apply border border-ink/10 bg-surface-raised/70 backdrop-blur-glass backdrop-saturate-150 shadow-glass;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-strong {
+  @apply border border-ink/10 bg-surface-raised/85 backdrop-blur-2xl backdrop-saturate-150;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    inset 0 1px 0 rgb(var(--glass-border) / 0.08),
+    0 8px 32px -4px rgb(0 0 0 / 0.12);
+}
+.dark .glass-strong {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.3),
+    inset 0 1px 0 rgb(var(--glass-border) / 0.14),
+    0 8px 32px -4px rgb(0 0 0 / 0.55);
+}
+
+/* Softer, more premium glass shadow that reads well in both themes */
+@layer utilities {
+  .shadow-glass {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 8px 24px -4px rgb(0 0 0 / 0.12);
+  }
+  .dark .shadow-glass {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.3),
+      0 8px 32px -4px rgb(0 0 0 / 0.55);
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Custom scrollbars that match the theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--ink-muted) / 0.35) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(var(--ink-muted) / 0.35);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

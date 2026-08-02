@@ -28,5 +28,6 @@ export function useJourney(trainNumber: string) {
     queryFn: () => fetchJourney(trainNumber),
     refetchInterval: visible ? 18_000 : false,
     enabled: !!trainNumber,
+    staleTime: 10_000,
   });
 }

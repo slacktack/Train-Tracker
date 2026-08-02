@@ -32,12 +32,19 @@ export interface LiveLocation {
   heading: number;
   speedKmh: number;
   isMoving: boolean;
+  /**
+   * Where the position came from. `projected` means the train has no live
+   * fix — the point is interpolated along the route from schedule timing.
+   */
+  positionSource?: 'gps' | 'station' | 'projected' | 'none';
 }
 
 export interface LiveJourney {
   trainId: string;
   number: string;
   name: string;
+  nameUnicode?: string;
+  type?: string;
   origin: { code: string; name: string };
   destination: { code: string; name: string };
   currentLocation: LiveLocation;
@@ -56,4 +63,30 @@ export interface LiveJourney {
   stations: Station[];
   routeGeometry?: [number, number][];
   stale?: boolean;
+}
+
+/** Compact row from `/api/active-trains` (server-trimmed live feed). */
+export interface LiveTrain {
+  n: string;
+  name: string;
+  type: string;
+  lat: number;
+  lon: number;
+  src: 'STATION' | 'GPS';
+  h: number;
+  stn?: string;
+  stc?: string;
+  st: string;
+  /** Estimated ground speed (km/h) from consecutive GPS fixes. */
+  spd?: number;
+}
+
+/** Active trains grouped by station — powers the tap-station departure board. */
+export interface StationGroup {
+  code: string;
+  name: string;
+  lat: number;
+  lon: number;
+  count: number;
+  trains: LiveTrain[];
 }

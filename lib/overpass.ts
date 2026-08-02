@@ -1,4 +1,5 @@
 import { TerrainFeature } from '@/types/geo';
+import { fetchOverpassJson } from '@/lib/overpass-client';
 
 function buildOverpassQuery(minLat: number, minLng: number, maxLat: number, maxLng: number): string {
   const bbox = `${minLat},${minLng},${maxLat},${maxLng}`;
@@ -49,17 +50,22 @@ export async function getTerrainFeatures(routeCoords: [number, number][]): Promi
 
   try {
     const query = buildOverpassQuery(minLat, minLng, maxLat, maxLng);
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(query)}`,
+    const json = (await fetchOverpassJson(query, {
       next: { revalidate: 86400 },
-    } as any);
-
-    if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
-
-    const json = await res.json();
-    const elements: any[] = json?.elements || [];
+    })) as {
+      elements?: Array<{
+        tags?: Record<string, string>;
+        lat?: number;
+        lon?: number;
+        center?: { lat?: number; lon?: number };
+      }>;
+    };
+    const elements: Array<{
+      tags?: Record<string, string>;
+      lat?: number;
+      lon?: number;
+      center?: { lat?: number; lon?: number };
+    }> = json.elements || [];
 
     const seen = new Set<string>();
     const features: TerrainFeature[] = [];

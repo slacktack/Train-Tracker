@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchTrains } from '@/lib/railradar';
+import { searchTrains } from '@/lib/railjournal';
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q') ?? '';

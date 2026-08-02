@@ -10,7 +10,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center rounded-pill px-2x py-1x text-sm font-medium transition-colors',
+        'inline-flex min-h-11 items-center justify-center rounded-pill px-2x py-1x text-sm font-medium transition-colors',
         variant === 'primary' && 'bg-accent text-white hover:opacity-90',
         variant === 'ghost' && 'bg-transparent text-ink hover:bg-surface-raised',
         className

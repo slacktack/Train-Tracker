@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   try {
     const snapshot = await getWeatherSnapshot(lat, lng);
     return NextResponse.json(snapshot);
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch weather' }, { status: 502 });
   }
 }

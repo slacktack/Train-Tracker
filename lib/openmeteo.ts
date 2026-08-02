@@ -32,7 +32,7 @@ export function isRainCode(code: number): boolean {
 
 export async function getWeatherSnapshot(lat: number, lng: number): Promise<WeatherSnapshot> {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,precipitation,wind_speed_10m,weather_code`;
-  const res = await fetch(url, { next: { revalidate: 300 } } as any);
+  const res = await fetch(url, { next: { revalidate: 300 } } as RequestInit);
   if (!res.ok) throw new Error(`Open-Meteo error: ${res.status}`);
   const json = await res.json();
   const current = json.current;

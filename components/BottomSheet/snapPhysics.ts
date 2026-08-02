@@ -1,12 +1,13 @@
-export type SheetSnapState = 'peek' | 'half' | 'full';
+export type SheetSnapState = 'peek' | 'half';
 
 export const SNAP_HEIGHTS: Record<SheetSnapState, number> = {
   peek: 0.12,
-  half: 0.45,
-  full: 0.9,
+  half: 0.5,
 };
 
-const ORDER: SheetSnapState[] = ['peek', 'half', 'full'];
+const ORDER: SheetSnapState[] = ['peek', 'half'];
+
+const FLING_EPSILON = 0.05;
 
 export function resolveSnapState(
   currentHeightFraction: number,
@@ -14,14 +15,14 @@ export function resolveSnapState(
   flingThreshold = 500
 ): SheetSnapState {
   if (velocity > flingThreshold) {
-    const currentIdx = ORDER.findIndex((s) => SNAP_HEIGHTS[s] >= currentHeightFraction);
-    const idx = currentIdx === -1 ? ORDER.length - 1 : currentIdx;
-    return ORDER[Math.max(0, idx - 1)];
+    const next = ORDER.find((s) => SNAP_HEIGHTS[s] > currentHeightFraction + FLING_EPSILON);
+    return next ?? 'half';
   }
   if (velocity < -flingThreshold) {
-    const currentIdx = ORDER.findIndex((s) => SNAP_HEIGHTS[s] >= currentHeightFraction);
-    const idx = currentIdx === -1 ? ORDER.length - 1 : currentIdx;
-    return ORDER[Math.min(ORDER.length - 1, idx + 1)];
+    const next = [...ORDER]
+      .reverse()
+      .find((s) => SNAP_HEIGHTS[s] < currentHeightFraction - FLING_EPSILON);
+    return next ?? 'peek';
   }
 
   let closest: SheetSnapState = 'peek';
