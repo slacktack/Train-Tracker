@@ -691,7 +691,19 @@ function deriveStatus(
 ): LiveJourney['status'] {
   const msg = info.current_position?.train_status_last_location ?? '';
   if (msg.includes('Cancelled') || msg.toLowerCase().includes('cancelled')) return 'cancelled';
-  if (msg.includes('Arrived') || msg.includes('Completed')) return 'completed';
+  // "Arrived at X(CODE)" fires for EVERY intermediate station, not just the
+  // final one — a train mid-route arriving at station 5 of 12 produces the
+  // exact same "Arrived at ..." message as one that's actually finished.
+  // Only treat it as journey-complete when the arrived station is the
+  // timetable's last stop.
+  const arrivedMatch = msg.match(/Arrived at .*?\(([A-Z0-9]+)\)/);
+  if (arrivedMatch) {
+    const arrivedCode = arrivedMatch[1];
+    const lastStop = info.train_public_time_table[info.train_public_time_table.length - 1];
+    if (lastStop && arrivedCode === lastStop.station_code) return 'completed';
+  } else if (msg.includes('Completed')) {
+    return 'completed';
+  }
   if (msg.includes('Yet to start')) return 'not_started';
   return maxDelay >= 15 ? 'delayed' : 'on_time';
 }
