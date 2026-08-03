@@ -396,7 +396,14 @@ function estimateTrainSpeeds(trains: ActiveTrain[]): void {
 // GPS trains over time, cache the speeds, and merge them into the feed.
 
 const SPEED_SAMPLE_INTERVAL_MS = 60_000; // one batch per minute, never tighter
-const SPEED_SAMPLE_BATCH = 8; // trains per batch (each is an authed round-trip)
+// 8/min against ~1,500-2,000 concurrently active GPS trains meant only ~40
+// trains ever had a valid cached speed at once (8/min * 5-min TTL) — under
+// 3% coverage, which is why the fleet-wide "avg speed" stat and most
+// individual dots read 0 despite trains genuinely moving. 24/min roughly
+// triples coverage without tightening the interval (each batch is still a
+// serialized round-trip queue, so this doesn't increase request *frequency*,
+// just how many trains ride along in each already-scheduled batch).
+const SPEED_SAMPLE_BATCH = 24; // trains per batch (each is an authed round-trip)
 const SPEED_SAMPLE_TTL_MS = 5 * 60_000; // cached speed is fresh for 5 min
 const SPEED_PRIORITY_TYPES = new Set(['RAJ', 'SHT', 'VNDB', 'TEJ', 'DRNT', 'JSH', 'GBR', 'AMTB', 'PEXP']);
 
