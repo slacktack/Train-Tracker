@@ -3,7 +3,19 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Bell, Gauge, Loader2, RefreshCcw, Search } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Ban,
+  Bell,
+  Check,
+  Gauge,
+  Loader2,
+  RefreshCcw,
+  Search,
+  Share2,
+  Star,
+} from 'lucide-react';
 import { useJourney } from '@/hooks/useJourney';
 import { useRouteContext } from '@/hooks/useRouteContext';
 import { useWeather } from '@/hooks/useWeather';
@@ -20,11 +32,24 @@ import { CircularGauge } from '@/components/ui/CircularGauge';
 import { LoadingCue, LoadingSkeleton } from '@/components/ui/LoadingCue';
 import { getSunInfo } from '@/lib/sun';
 import { useTimeTheme } from '@/lib/useTimeTheme';
-import { todayInISTISO, TrainSchedule, CoachChart } from '@/lib/rail-schedule-types';
+import { todayInIST, todayInISTISO, istDateOffset, TrainSchedule, CoachChart } from '@/lib/rail-schedule-types';
 import { countdownText, secondsUntil, formatCountdown } from '@/lib/track-time';
 import { CommandPalette } from '@/components/CommandPalette';
 import { useTrackingStore } from '@/store/useTrackingStore';
+import { useFavoritesStore } from '@/store/useFavoritesStore';
+import { useRecentsStore } from '@/store/useRecentsStore';
 import { trainTypeColor, trainTypeLabel } from '@/lib/train-type';
+
+function relativeUpdated(iso: string | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const s = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+  if (s < 45) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86_400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86_400)}d ago`;
+}
 
 function useTrainSchedule(trainNumber: string) {
   return useQuery({
@@ -94,6 +119,68 @@ function RunsOnBadge({ runsOn }: { runsOn: string[] }) {
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Journey start-date picker. check_train_info is keyed by the journey's real
+ * start date; when auto-detection misses (rare feed gaps, multi-day routes),
+ * the user can pin the run themselves — the fix for trains that showed
+ * "not started yet" while actually running since yesterday.
+ */
+function JourneyDateChips({
+  selected,
+  onSelect,
+  resolvedStartDate,
+}: {
+  selected: string | undefined;
+  onSelect: (date: string | undefined) => void;
+  resolvedStartDate?: string;
+}) {
+  const today = todayInIST();
+  const options = [
+    { label: 'Today', date: today },
+    { label: 'Yesterday', date: istDateOffset(1) },
+    { label: '2 days ago', date: istDateOffset(2) },
+    { label: '3 days ago', date: istDateOffset(3) },
+  ];
+  const active = selected ?? resolvedStartDate;
+  return (
+    <div className="flex flex-col gap-1x rounded-card bg-surface-raised/60 p-2x">
+      <div className="flex items-center justify-between gap-1x">
+        <p className="text-label text-ink-muted">Journey date</p>
+        {selected && (
+          <button
+            type="button"
+            onClick={() => onSelect(undefined)}
+            className="text-label normal-case tracking-normal text-accent transition-colors hover:text-accent/80"
+          >
+            Auto-detect
+          </button>
+        )}
+      </div>
+      <div className="no-scrollbar flex items-center gap-1x overflow-x-auto">
+        {options.map(({ label, date }) => (
+          <button
+            key={date}
+            type="button"
+            onClick={() => onSelect(active === date ? undefined : date)}
+            className={
+              active === date
+                ? 'shrink-0 rounded-pill border border-accent bg-accent/15 px-2x py-0.5x text-caption font-semibold text-accent'
+                : 'shrink-0 rounded-pill border border-ink/10 bg-surface-raised/60 px-2x py-0.5x text-caption text-ink-muted transition-colors hover:border-ink/25 hover:text-ink'
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {resolvedStartDate && resolvedStartDate !== today && !selected && (
+        <p className="text-caption text-ink-muted">
+          This journey started <span className="font-medium text-ink">{resolvedStartDate}</span> — showing that run.
+        </p>
+      )}
     </div>
   );
 }
@@ -178,11 +265,23 @@ function PreJourneyDashboard({
 export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
   const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [journeyDate, setJourneyDate] = useState<string | undefined>(undefined);
+  const [copied, setCopied] = useState(false);
   const { sheetState } = useTrackingStore();
   const { theme } = useTimeTheme();
-  const { data: journey, isLoading, error, refetch } = useJourney(trainNumber);
+  const { data: journey, isLoading, error, refetch } = useJourney(trainNumber, journeyDate);
   const { data: schedule } = useTrainSchedule(trainNumber);
   const photo = useTrainPhoto(trainNumber);
+
+  const { isFavorite, toggleFavorite } = useFavoritesStore();
+  const pushRecent = useRecentsStore((s) => s.pushRecent);
+
+  // Remember every viewed train so the search palette can offer quick picks.
+  useEffect(() => {
+    if (journey?.number) {
+      pushRecent({ number: journey.number, name: journey.name });
+    }
+  }, [journey?.number, journey?.name, pushRecent]);
 
   const routeContext = useRouteContext(
     journey?.routeGeometry,
@@ -251,20 +350,34 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
 
   const projected = journey.currentLocation.positionSource === 'projected';
 
-  const updatedText = (() => {
-    const raw = journey.lastUpdated;
-    if (!raw) return '—';
-    const d = new Date(raw);
-    if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Kolkata',
-      });
+  const updatedText = relativeUpdated(journey.lastUpdated);
+
+  // Offer the date picker when the train hasn't started (find the right run),
+  // when the user already pinned one, or when the auto-resolved journey began
+  // on an earlier day (overnight/multi-day routes).
+  const showDateChips =
+    journey.status === 'not_started' ||
+    !!journeyDate ||
+    (!!journey.startDate && journey.startDate !== todayInIST());
+
+  const isFav = isFavorite(trainNumber);
+
+  const shareTrain = async () => {
+    const url = window.location.href;
+    const title = `${journey.name} (${journey.number}) · Live Train Tracker`;
+    const text = `Live status: ${journey.origin.name} → ${journey.destination.name} · ${journey.status.replaceAll('_', ' ')}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text, url });
+      } else {
+        await navigator.clipboard.writeText(`${title} — ${url}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      // user dismissed the share sheet — nothing to do
     }
-    return raw;
-  })();
+  };
 
   const heroImage = photo.data ? (
     <div className="relative h-28 w-full overflow-hidden rounded-card sm:h-32">
@@ -316,11 +429,26 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
     <div className="flex flex-col gap-2x">
       {heroImage}
       {schedule && <RunsOnBadge runsOn={schedule.trainRunsOn} />}
+      {journey.status === 'cancelled' && (
+        <div className="flex items-center gap-2x rounded-card border border-status-heavyDelay/25 bg-status-heavyDelay/10 px-2x py-1.5x">
+          <Ban className="h-4 w-4 shrink-0 text-status-heavyDelay" aria-hidden />
+          <p className="text-body font-medium leading-snug text-ink">
+            This train&apos;s journey has been cancelled.
+          </p>
+        </div>
+      )}
       {journey.status === 'not_started' && (
         <PreJourneyDashboard
           countdown={liveCountdown}
           origin={journey.origin?.name}
           platform={journey.stations[0]?.platform}
+        />
+      )}
+      {showDateChips && (
+        <JourneyDateChips
+          selected={journeyDate}
+          onSelect={setJourneyDate}
+          resolvedStartDate={journey.startDate}
         />
       )}
 
@@ -504,28 +632,65 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         aria-label="Page navigation"
         className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2x p-2x pt-[max(0.75rem,env(safe-area-inset-top))] lg:left-[calc(min(26rem,42vw)+0.5rem)]"
       >
-        <button
-          type="button"
-          onClick={() => router.push('/')}
-          className="glass-strong flex items-center gap-1x rounded-pill px-2x py-1x text-body font-bold text-ink transition-colors hover:text-accent"
-          aria-label="Back to all trains on the map"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          <span>All trains</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setPaletteOpen(true)}
-          className="glass-strong flex items-center gap-1x rounded-pill px-2x py-1x text-body font-bold text-ink-muted transition-colors hover:text-ink"
-          aria-label="Track another train"
-        >
-          <Search className="h-4 w-4" aria-hidden />
-          <span className="hidden sm:inline">Track another</span>
-          <span className="sm:hidden">Another</span>
-          <kbd className="hidden rounded-md border border-ink-muted/20 bg-surface-raised/60 px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted md:inline">
-            ⌘K
-          </kbd>
-        </button>
+        <div className="flex items-center gap-1.5x">
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            className="glass-strong flex items-center gap-1x rounded-pill px-2x py-1x text-body font-bold text-ink transition-colors hover:text-accent"
+            aria-label="Back to all trains on the map"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            <span className="hidden sm:inline">All trains</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="glass-strong flex h-9 w-9 items-center justify-center rounded-pill text-ink-muted transition-colors hover:text-ink active:scale-95"
+            aria-label="Refresh live status"
+            title="Refresh live status"
+          >
+            <RefreshCcw className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1.5x">
+          <button
+            type="button"
+            onClick={() => toggleFavorite({ number: trainNumber, name: journey.name })}
+            className={`glass-strong flex h-9 w-9 items-center justify-center rounded-pill transition-colors active:scale-95 ${
+              isFav ? 'text-amber-400 hover:text-amber-300' : 'text-ink-muted hover:text-ink'
+            }`}
+            aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+            title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400' : ''}`} aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={shareTrain}
+            className="glass-strong flex h-9 w-9 items-center justify-center rounded-pill text-ink-muted transition-colors hover:text-ink active:scale-95"
+            aria-label="Share this train"
+            title={copied ? 'Link copied!' : 'Share this train'}
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-status-onTime" aria-hidden />
+            ) : (
+              <Share2 className="h-4 w-4" aria-hidden />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="glass-strong flex h-9 items-center gap-1x rounded-pill px-2x text-body font-bold text-ink-muted transition-colors hover:text-ink"
+            aria-label="Track another train"
+          >
+            <Search className="h-4 w-4" aria-hidden />
+            <span className="hidden sm:inline">Track another</span>
+            <kbd className="hidden rounded-md border border-ink-muted/20 bg-surface-raised/60 px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted md:inline">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
       </nav>
 
       <aside className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-[min(26rem,42vw)] items-center p-2x lg:flex">

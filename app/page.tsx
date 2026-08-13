@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
-import { Search, TrainFront } from 'lucide-react';
+import { RefreshCcw, Search, Star, TrainFront, X } from 'lucide-react';
 import { LiveTrain, StationGroup } from '@/types/train';
 import { LiveMap } from '@/components/Home/LiveMap';
 import { TrainDetailCard } from '@/components/Home/TrainDetailCard';
@@ -14,6 +14,7 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTimeTheme } from '@/lib/useTimeTheme';
 import { useJourney } from '@/hooks/useJourney';
+import { useFavoritesStore } from '@/store/useFavoritesStore';
 
 const POLL_INTERVAL_MS = 30_000;
 const CLOCK_TICK_MS = 30_000;
@@ -75,6 +76,8 @@ export default function HomePage() {
   const { data: selectedJourney } = useJourney(selected?.n ?? '');
   const selectedRef = useRef<LiveTrain | null>(null);
   selectedRef.current = selected;
+  const { favorites, removeFavorite } = useFavoritesStore();
+  const [refreshing, setRefreshing] = useState(false);
 
   const [istNow, setIstNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -95,6 +98,12 @@ export default function HomePage() {
       setError(true);
     }
   }, []);
+
+  const refreshNow = useCallback(async () => {
+    setRefreshing(true);
+    await poll();
+    setRefreshing(false);
+  }, [poll]);
 
   useEffect(() => {
     poll();
@@ -148,7 +157,7 @@ export default function HomePage() {
       <div className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 h-36 bg-gradient-to-t ${bottomShade} to-transparent`} />
 
       <header className="absolute inset-x-0 top-[max(1rem,env(safe-area-inset-top))] z-20 flex flex-col items-center gap-1x px-2x sm:px-3x">
-        <div className="glass-strong flex w-full max-w-3xl flex-col gap-1x rounded-card px-2x py-1.5x sm:flex-row sm:items-center sm:gap-2x">
+        <div className="glass-strong flex w-full max-w-3xl flex-col gap-1x rounded-card px-2x py-1x sm:flex-row sm:items-center sm:gap-2x sm:py-1.5x">
           <div className="flex items-center gap-2x">
             <div className="flex shrink-0 items-center gap-1.5x">
               <span className="flex h-9 w-9 items-center justify-center rounded-pill bg-accent/15 shadow-glow">
@@ -171,15 +180,23 @@ export default function HomePage() {
 
             <div className="ml-auto flex shrink-0 items-center gap-1.5x sm:hidden">
               {count !== null && (
-                <div className="flex shrink-0 items-center gap-1x rounded-pill border border-status-onTime/30 bg-status-onTime/10 px-2x py-1x">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-onTime opacity-75" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-onTime" />
-                  </span>
+                <button
+                  onClick={refreshNow}
+                  aria-label="Refresh live feed"
+                  className="flex shrink-0 items-center gap-1x rounded-pill border border-status-onTime/30 bg-status-onTime/10 px-2x py-1x transition-transform active:scale-95"
+                >
+                  {refreshing ? (
+                    <RefreshCcw className="h-3.5 w-3.5 animate-spin text-status-onTime" aria-hidden />
+                  ) : (
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-onTime opacity-75" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-onTime" />
+                    </span>
+                  )}
                   <span className="font-display text-subhead leading-none tabular-nums">
                     {new Intl.NumberFormat('en-IN').format(count)}
                   </span>
-                </div>
+                </button>
               )}
               <ThemeToggle />
             </div>
@@ -197,22 +214,56 @@ export default function HomePage() {
           </button>
 
           {count !== null && (
-            <div className="hidden shrink-0 items-center gap-1x rounded-pill border border-status-onTime/30 bg-status-onTime/10 px-2x py-1x sm:flex">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-onTime opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-onTime" />
-              </span>
+            <button
+              onClick={refreshNow}
+              aria-label="Refresh live feed"
+              className="hidden shrink-0 items-center gap-1x rounded-pill border border-status-onTime/30 bg-status-onTime/10 px-2x py-1x transition-transform active:scale-95 sm:flex"
+            >
+              {refreshing ? (
+                <RefreshCcw className="h-3.5 w-3.5 animate-spin text-status-onTime" aria-hidden />
+              ) : (
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-onTime opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-onTime" />
+                </span>
+              )}
               <span className="font-display text-subhead leading-none tabular-nums">
                 {new Intl.NumberFormat('en-IN').format(count)}
               </span>
               <span className="hidden text-label normal-case tracking-wider text-ink-muted sm:inline">live</span>
-            </div>
+            </button>
           )}
 
           <div className="hidden sm:block">
             <ThemeToggle />
           </div>
         </div>
+
+        {favorites.length > 0 && (
+          <div className="glass flex w-full max-w-3xl items-center gap-1x overflow-x-auto no-scrollbar rounded-card px-2x py-1x">
+            <span className="flex shrink-0 items-center gap-1x text-label text-ink-muted">
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden />
+              Favourites
+            </span>
+            {favorites.map((f) => (
+              <span key={f.number} className="flex shrink-0 items-center gap-0.5x">
+                <button
+                  onClick={() => router.push(`/track/${f.number}`)}
+                  className="rounded-pill bg-accent/10 px-2x py-0.5x text-caption font-medium text-accent transition-colors hover:bg-accent/20"
+                >
+                  {f.number} · {f.name}
+                </button>
+                <button
+                  onClick={() => removeFavorite(f.number)}
+                  aria-label={`Remove ${f.name} from favorites`}
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-ink-muted/50 transition-colors hover:bg-ink/10 hover:text-ink"
+                >
+                  <X className="h-3 w-3" aria-hidden />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {trains.length > 0 && (
           <div className="flex w-full max-w-3xl flex-col gap-1x">

@@ -47,6 +47,8 @@ export interface LiveJourney {
   name: string;
   nameUnicode?: string;
   type?: string;
+  /** The journey's actual start date (DD-Mmm-YYYY) — the date whose status this journey describes. */
+  startDate?: string;
   origin: { code: string; name: string };
   destination: { code: string; name: string };
   currentLocation: LiveLocation;

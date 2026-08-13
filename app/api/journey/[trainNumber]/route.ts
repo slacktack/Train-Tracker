@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getLiveJourney } from '@/lib/railjournal';
+import { getLiveJourney, isValidJourneyDate } from '@/lib/railjournal';
 import { getRailRouteGeometry, snapPointToPolyline } from '@/lib/rail-route';
 import { getCached, setCached } from '@/lib/redis-cache';
 import { LiveJourney } from '@/types/train';
@@ -11,12 +11,40 @@ import { LiveJourney } from '@/types/train';
 // reaches the client on the very next poll regardless — no need to wait here.
 const ROUTE_GRACE_MS = 200;
 
+/**
+ * How long a journey response may be cached. Live journeys refresh at
+ * feed-poll cadence; not_started journeys expire fast when departure is
+ * imminent (so the status flips the moment the train rolls) and slowly when
+ * departure is hours away; completed journeys are effectively static.
+ */
+function ttlForJourney(journey: LiveJourney): number {
+  if (journey.status === 'not_started') {
+    const dep = journey.stations[0]?.scheduledDeparture;
+    if (!dep || dep === '--:--') return 10 * 60;
+    const [h, m] = dep.split(':').map(Number);
+    const now = new Date();
+    const istNow = new Date(now.getTime() + 5.5 * 3600_000);
+    const nowMin = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
+    const depMin = h * 60 + m;
+    const minutesUntil = ((depMin - nowMin) % 1440 + 1440) % 1440;
+    return minutesUntil <= 120 ? 30 : 10 * 60;
+  }
+  if (journey.status === 'completed') return 15 * 60;
+  return 20;
+}
+
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { trainNumber: string } }
 ) {
   const { trainNumber } = params;
-  const cacheKey = `journey:${trainNumber}`;
+  // Optional explicit journey start date (DD-Mmm-YYYY) — pins the journey
+  // to a specific run when auto start-date detection misses (see
+  // resolveJourneyInfo in lib/railjournal.ts). Kept out of the default
+  // cache key so an override never serves another date's cached journey.
+  const dateParam = req.nextUrl.searchParams.get('date') ?? undefined;
+  const override = isValidJourneyDate(dateParam) ? dateParam : undefined;
+  const cacheKey = `journey:${trainNumber}:${override ?? 'auto'}`;
 
   const cached = await getCached<LiveJourney>(cacheKey);
   if (cached) {
@@ -24,16 +52,12 @@ export async function GET(
   }
 
   try {
-    const journey = await getLiveJourney(trainNumber);
+    const journey = await getLiveJourney(trainNumber, override);
     if (!journey) {
       return NextResponse.json({ error: 'Train not found' }, { status: 404 });
     }
 
-    // Static schedules (not_started/completed) barely change; live journeys
-    // need ~feed-poll freshness.
-    const ttl = journey.status === 'not_started' || journey.status === 'completed'
-      ? 15 * 60
-      : 20;
+    const ttl = ttlForJourney(journey);
 
     // Pin the train marker onto the drawn track so the arrow never floats
     // beside the line (GPS noise / sparse station coords skew the raw fix).

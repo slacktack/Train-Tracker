@@ -11,6 +11,7 @@ import {
   TrainSchedule,
   todayInIST,
   todayInISTISO,
+  istDateOffset,
 } from '@/lib/rail-schedule-types';
 
 export type {
@@ -19,7 +20,7 @@ export type {
   ScheduleStation,
   TrainSchedule,
 };
-export { todayInIST, todayInISTISO };
+export { todayInIST, todayInISTISO, istDateOffset };
 
 /**
  * railjournal.in API client — verified live on 2026-08-02.
@@ -263,6 +264,18 @@ export async function getTrainSchedule(trainNo: string): Promise<TrainSchedule |
     duration: d.duration ?? '',
     stationList: d.stationList,
   };
+}
+
+const SCHEDULE_CACHE_TTL_S = 24 * 3600;
+
+/** getTrainSchedule with a 24h Redis/ memory cache — safe to call in search paths. */
+export async function getCachedSchedule(trainNo: string): Promise<TrainSchedule | null> {
+  const key = `schedule:${trainNo}`;
+  const cached = await getCached<TrainSchedule>(key);
+  if (cached) return cached;
+  const schedule = await getTrainSchedule(trainNo);
+  if (schedule) await setCached(key, schedule, SCHEDULE_CACHE_TTL_S).catch(() => {});
+  return schedule;
 }
 
 /** A train number is 5 digits (Indian railway convention). */
@@ -641,6 +654,114 @@ export async function getTrainImage(trainNo: string): Promise<string | null> {
   return `${BASE}${json.image_url}`;
 }
 
+// ─── Journey start-date resolution ─────────────────────────────────────────
+// check_train_info is keyed by the journey's ACTUAL start date, not today.
+// Querying with the wrong date makes a mid-route train (departed last night)
+// answer "Yet to start" — the single most common reason tracking showed
+// "not started" for trains that were genuinely running. Resolution order:
+//   1. The open feed's per-train start_date (ground truth — it's the same
+//      value railjournal's own UI uses) when the train is broadcasting.
+//   2. A previously resolved date cached per train.
+//   3. Probing today → yesterday → day-before → 2 days back, taking the
+//      first response with real progress (a live, unfinished journey).
+
+/** Feed start_date is "02 Aug" (space-separated, no year) → "02-Aug-YYYY". */
+function normalizeFeedStartDate(raw: string | undefined, fallbackYearDate: string): string {
+  if (!raw) return fallbackYearDate;
+  const m = raw.trim().match(/^(\d{1,2})[- ]([A-Za-z]{3})/);
+  if (m) {
+    const month = m[2][0].toUpperCase() + m[2].slice(1, 3).toLowerCase();
+    return `${m[1].padStart(2, '0')}-${month}-${fallbackYearDate.split('-')[2]}`;
+  }
+  return raw.trim();
+}
+
+export function isValidJourneyDate(value: string | undefined): value is string {
+  return !!value && /^\d{2}-[A-Z][a-z]{2}-\d{4}$/.test(value);
+}
+
+/** A response is "live" when any station has progress but the final stop hasn't arrived. */
+function isLiveJourneyResponse(info: RailJournalTrainInfo): boolean {
+  const rows = info.train_public_time_table;
+  if (!rows || rows.length === 0) return false;
+  const hasProgress = rows.some(
+    (r) => (r.has_arrived && r.has_arrived !== '-') || (r.has_departed && r.has_departed !== '-')
+  );
+  if (!hasProgress) return false;
+  const last = rows[rows.length - 1];
+  return !(last.has_arrived && last.has_arrived !== '-');
+}
+
+const START_DATE_CACHE_KEY = (trainNo: string) => `journey-start:${trainNo}`;
+const START_DATE_TTL_S = 12 * 3600;
+const startDateCache = new Map<string, { date: string; expiresAt: number }>();
+
+async function getCachedStartDate(trainNo: string): Promise<string | null> {
+  const mem = startDateCache.get(trainNo);
+  if (mem && mem.expiresAt > Date.now()) return mem.date;
+  const redis = await getCached<{ date: string }>(START_DATE_CACHE_KEY(trainNo)).catch(() => null);
+  if (redis?.date) {
+    startDateCache.set(trainNo, { date: redis.date, expiresAt: Date.now() + START_DATE_TTL_S * 1000 });
+    return redis.date;
+  }
+  return null;
+}
+
+async function rememberStartDate(trainNo: string, date: string) {
+  startDateCache.set(trainNo, { date, expiresAt: Date.now() + START_DATE_TTL_S * 1000 });
+  await setCached(START_DATE_CACHE_KEY(trainNo), { date }, START_DATE_TTL_S).catch(() => {});
+}
+
+/**
+ * Find the journey's real start date and fetch its running status.
+ * Returns null only when the train number doesn't exist at all.
+ */
+async function resolveJourneyInfo(
+  trainNo: string,
+  activeTrains: ActiveTrain[]
+): Promise<{ info: RailJournalTrainInfo; startDate: string } | null> {
+  const today = todayInIST();
+  const feedTrain = activeTrains.find((t) => t.train_no === trainNo);
+  const cachedDate = await getCachedStartDate(trainNo);
+
+  const candidates: string[] = [];
+  const push = (date: string | null | undefined) => {
+    if (date && !candidates.includes(date)) candidates.push(date);
+  };
+  push(feedTrain?.start_date ? normalizeFeedStartDate(feedTrain.start_date, today) : null);
+  push(cachedDate);
+  for (const daysAgo of [0, 1, 2, 3]) push(daysAgo === 0 ? today : istDateOffset(daysAgo));
+
+  const inFeedOrDb = !!feedTrain || TRAINS_DB.some((t) => t.number === trainNo);
+  const validNumber = isValidTrainNumber(trainNo);
+
+  let firstValid: { info: RailJournalTrainInfo; startDate: string } | null = null;
+
+  for (const date of candidates) {
+    const info = await getTrainInfo(trainNo, date, 'high');
+    if (!info || !Array.isArray(info.train_public_time_table) || info.train_public_time_table.length === 0) {
+      // First candidate answered nothing and the train is unknown outside
+      // the feed/DB (a bogus number) — don't burn 4 authed probes on it.
+      if (!firstValid && !inFeedOrDb && !validNumber) return null;
+      continue;
+    }
+    const attempt = { info, startDate: date };
+    firstValid ??= attempt;
+    if (isLiveJourneyResponse(info)) {
+      await rememberStartDate(trainNo, date);
+      return attempt;
+    }
+    // Genuinely not started yet: the response itself confirms today is the
+    // journey's start date, so nothing older can be "more live" for it.
+    if (date === today && normalizeFeedStartDate(info.start_date, today) === today) {
+      await rememberStartDate(trainNo, today);
+      return attempt;
+    }
+  }
+
+  return firstValid;
+}
+
 // ─── Normalizers (railjournal raw → app types) ─────────────────────────────
 
 function parseDelay(value: string | undefined): number {
@@ -813,10 +934,12 @@ interface NormaliseOptions {
   stationCoords: Map<string, [number, number]>;
   fallbackOrigin?: [number, number] | null;
   fallbackDestination?: [number, number] | null;
+  /** The journey's actual start date (DD-Mmm-YYYY) — the date whose status this journey describes. */
+  startDate?: string;
 }
 
 export function normaliseJourney(info: RailJournalTrainInfo, options: NormaliseOptions): LiveJourney {
-  const { activeTrains, stationCoords, fallbackOrigin = null, fallbackDestination = null } = options;
+  const { activeTrains, stationCoords, fallbackOrigin = null, fallbackDestination = null, startDate } = options;
 
   const stations = buildStations(info, stationCoords);
   const maxDelay = maxTimetableDelay(info.train_public_time_table);
@@ -891,6 +1014,7 @@ export function normaliseJourney(info: RailJournalTrainInfo, options: NormaliseO
     name: info.train_name ?? info.train_no,
     nameUnicode: info.train_name_unicode ? decodeHtmlEntities(info.train_name_unicode) : undefined,
     type: info.train_sub_type,
+    startDate,
     origin: { code: origin?.code ?? info.current_position?.train_source ?? '', name: origin?.name ?? '' },
     destination: { code: destination?.code ?? info.current_position?.train_destination ?? '', name: destination?.name ?? '' },
     currentLocation: { lat: trainLat, lng: trainLng, heading, speedKmh, isMoving, positionSource },
@@ -1058,13 +1182,14 @@ function nameMatchesQuery(name: string, query: string): boolean {
  * Same-named trains (an "up" and "down" service, or one running today vs
  * one that hasn't started yet) are otherwise indistinguishable in a result
  * list until you tap in. Derive a short status from the one thing the feed
- * actually tells us: source (GPS = confirmed moving), speed, and whether
- * the feed's start_date is today at all — a stale/future entry means it
- * isn't really "live" right now regardless of what its GPS blip suggests.
+ * actually tells us: source (GPS = confirmed moving), speed, and position.
+ * Note: a start_date of YESTERDAY does NOT mean "not running" — overnight
+ * trains are mid-route since yesterday and the feed carries them live.
+ * Only a start date strictly AFTER today means the journey hasn't begun.
  */
 function describeLiveNote(t: ActiveTrain, todayPrefix: string): string {
-  const isToday = !t.start_date || t.start_date.startsWith(todayPrefix);
-  if (!isToday) return `Not running today (started ${t.start_date})`;
+  const started = t.start_date?.trim();
+  if (started && started > todayPrefix) return 'Not running yet';
   if (t.source === 'GPS' && (t.speedKmh ?? 0) > 0) return `Running · ${Math.round(t.speedKmh ?? 0)} km/h`;
   if (t.source === 'GPS') return 'Running · stopped';
   return t.station_name ? `At ${t.station_name.replace(/\s+/g, ' ').trim()}` : 'At station';
@@ -1075,21 +1200,54 @@ export async function searchTrains(query: string): Promise<SearchResult[]> {
   const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
   // todayInIST() returns "DD-Mmm-YYYY"; the feed's start_date is "DD Mon" (space-separated).
   const todayPrefix = todayInIST().split('-').slice(0, 2).join(' ');
+  const todayWeekday = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'short' }).format(new Date());
 
   const local = searchLocalTrains(q);
   if (local.length > 0) {
     const feedForLocal = await getActiveTrains().catch(() => []);
-    return local.map((t) => {
+    const results: SearchResult[] = [];
+    // Trains absent from the live feed get schedule-backed context (run days,
+    // departure time) instead of a dead-end "Not currently running" — the
+    // schedule endpoint is open and Redis-cached, so this is cheap. Capped so
+    // a broad query can't fan out 15 upstream calls per keystroke.
+    const needsSchedule = local.filter((t) => !feedForLocal.some((f) => f.train_no === t.number)).slice(0, 6);
+    const schedules = await Promise.all(
+      needsSchedule.map((t) => getCachedSchedule(t.number).catch(() => null))
+    );
+    const scheduleByNumber = new Map(needsSchedule.map((t, i) => [t.number, schedules[i]]));
+
+    for (const t of local) {
       const live = feedForLocal.find((f) => f.train_no === t.number);
-      return {
+      const schedule = scheduleByNumber.get(t.number);
+      const runsToday = !!schedule?.trainRunsOn.includes(todayWeekday);
+      const dep = schedule?.stationList[0]?.departureTime;
+      const arr = schedule?.stationList[schedule.stationList.length - 1]?.arrivalTime;
+      let liveNote: string;
+      if (live) {
+        liveNote = describeLiveNote(live, todayPrefix);
+      } else if (schedule && runsToday && dep && dep !== '--') {
+        liveNote = `Departs today · ${dep}`;
+      } else if (schedule && runsToday) {
+        liveNote = 'Runs today';
+      } else if (schedule && schedule.trainRunsOn.length > 0) {
+        liveNote = `Runs ${schedule.trainRunsOn.join(', ')}`;
+      } else {
+        liveNote = 'Not currently running';
+      }
+      results.push({
         id: t.number,
         number: t.number,
         name: t.name,
         origin: { code: t.fromCode, name: t.from },
         destination: { code: t.toCode, name: t.to },
-        liveNote: live ? describeLiveNote(live, todayPrefix) : 'Not currently running',
-      };
-    });
+        runsOn: schedule?.trainRunsOn,
+        duration: schedule?.duration || undefined,
+        departureTime: dep && dep !== '--' ? dep : undefined,
+        arrivalTime: arr && arr !== '--' ? arr : undefined,
+        liveNote,
+      });
+    }
+    return results;
   }
 
   const feed = await getActiveTrains().catch(() => []);
@@ -1154,12 +1312,28 @@ export async function searchTrains(query: string): Promise<SearchResult[]> {
 
 /**
  * Live journey for a train: check_train_info + GPS merge from the open feed.
+ * Resolves the journey's ACTUAL start date (see resolveJourneyInfo) so an
+ * overnight train that departed yesterday doesn't come back "not started".
+ * `dateOverride` (DD-Mmm-YYYY) pins the journey to a specific start date —
+ * used by the date chips on the tracking screen when auto-detection misses.
  * Throws on network failure — callers decide how to fall back.
  */
-export async function getLiveJourney(trainNumber: string): Promise<LiveJourney | null> {
+export async function getLiveJourney(trainNumber: string, dateOverride?: string): Promise<LiveJourney | null> {
   const [activeTrains, stationCoords] = await Promise.all([getActiveTrains(), getStationCoords()]);
 
-  const info = await getTrainInfo(trainNumber, todayInIST(), 'high').catch(() => null);
+  let info: RailJournalTrainInfo | null = null;
+  let resolvedStartDate: string | undefined = dateOverride;
+  if (dateOverride && isValidJourneyDate(dateOverride)) {
+    info = await getTrainInfo(trainNumber, dateOverride, 'high').catch(() => null);
+    if (info && (!Array.isArray(info.train_public_time_table) || info.train_public_time_table.length === 0)) {
+      info = null;
+    }
+  } else {
+    const resolved = await resolveJourneyInfo(trainNumber, activeTrains);
+    info = resolved?.info ?? null;
+    resolvedStartDate = resolved?.startDate;
+  }
+
   const timetable = info?.train_public_time_table;
 
   // The authed endpoint is the source of truth for *live* position, but it
@@ -1182,7 +1356,13 @@ export async function getLiveJourney(trainNumber: string): Promise<LiveJourney |
     ? [fallback.stations[fallback.stations.length - 1].lng, fallback.stations[fallback.stations.length - 1].lat]
     : null;
 
-  return normaliseJourney(info, { activeTrains, stationCoords, fallbackOrigin, fallbackDestination });
+  return normaliseJourney(info, {
+    activeTrains,
+    stationCoords,
+    fallbackOrigin,
+    fallbackDestination,
+    startDate: resolvedStartDate,
+  });
 }
 
 /** Schedule-only journey fallback; no live data exists so status is not_started. */

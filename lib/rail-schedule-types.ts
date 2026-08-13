@@ -67,3 +67,14 @@ export function todayInISTISO(): string {
   const day = parts.find((p) => p.type === 'day')?.value ?? '';
   return `${year}-${month}-${day}`;
 }
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * `DD-Mmm-YYYY` for `daysAgo` days before today, computed in IST — the format
+ * check_train_info (journey status) expects. Client-safe (no Node imports).
+ */
+export function istDateOffset(daysAgo: number): string {
+  const now = new Date(Date.now() + 5.5 * 3600_000 - daysAgo * 86_400_000);
+  return `${String(now.getUTCDate()).padStart(2, '0')}-${MONTHS_SHORT[now.getUTCMonth()]}-${now.getUTCFullYear()}`;
+}

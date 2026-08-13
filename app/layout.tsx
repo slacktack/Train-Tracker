@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk, Noto_Sans_Devanagari } from "next/font/google";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { themeForIST } from "@/lib/theme";
@@ -28,6 +28,28 @@ const notoDevanagari = Noto_Sans_Devanagari({
 export const metadata: Metadata = {
   title: "Train Tracker",
   description: "Live train tracking across India — real-time position, delay, and ETA.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "Train Tracker",
+  appleWebApp: {
+    capable: true,
+    title: "Train Tracker",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: { telephone: false },
+  icons: {
+    icon: "/icon.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F6F7FB" },
+    { media: "(prefers-color-scheme: dark)", color: "#08090D" },
+  ],
 };
 
 export default function RootLayout({

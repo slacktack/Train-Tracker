@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Armchair, ArrowRight, RefreshCcw, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { Armchair, ArrowRight, RefreshCcw, Star, TrendingDown, TrendingUp, X } from 'lucide-react';
 import { useJourney } from '@/hooks/useJourney';
 import { useTrainPhoto } from '@/hooks/useTrainPhoto';
 import { LiveTrain } from '@/types/train';
@@ -14,6 +14,8 @@ import { LoadingCue, LoadingSkeleton } from '@/components/ui/LoadingCue';
 import { TripStatBadge } from '@/components/TripStatBadge';
 import { StationRow } from '@/components/StationRow';
 import { trainTypeColor, trainTypeLabel } from '@/lib/train-type';
+import { useFavoritesStore } from '@/store/useFavoritesStore';
+import { useRecentsStore } from '@/store/useRecentsStore';
 
 interface TrainDetailCardProps {
   train: LiveTrain;
@@ -55,6 +57,17 @@ export function TrainDetailCard({ train, onClose, onTrack }: TrainDetailCardProp
   );
   const { data: journey, isLoading, isError, refetch } = useJourney(train.n);
   const { data: schedule } = useTrainSchedule(train.n);
+  const { isFavorite, toggleFavorite } = useFavoritesStore();
+  const pushRecent = useRecentsStore((s) => s.pushRecent);
+
+  // Viewing a train counts as a "recent" for the search palette quick picks.
+  useEffect(() => {
+    if (journey?.number) {
+      pushRecent({ number: journey.number, name: journey.name });
+    }
+  }, [journey?.number, journey?.name, pushRecent]);
+
+  const isFav = isFavorite(train.n);
   // Cached schedule origin lets the coach chart load in parallel with the journey.
   const originCode = journey?.origin.code ?? schedule?.stationFrom;
   const { data: coachChart } = useCoachSummary(train.n, originCode);
@@ -123,13 +136,25 @@ export function TrainDetailCard({ train, onClose, onTrack }: TrainDetailCardProp
               <p className="break-words font-devanagari text-caption text-ink-muted">{journey.nameUnicode}</p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close train details"
-            className="-mr-1x flex h-10 w-10 shrink-0 items-center justify-center rounded-pill text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex shrink-0 items-center gap-0.5x">
+            <button
+              onClick={() => toggleFavorite({ number: train.n, name: journey?.name ?? train.name })}
+              aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+              title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+              className={`-mr-0.5x flex h-10 w-10 items-center justify-center rounded-pill transition-colors ${
+                isFav ? 'text-amber-400 hover:text-amber-300' : 'text-ink-muted hover:bg-surface-raised hover:text-ink'
+              }`}
+            >
+              <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400' : ''}`} aria-hidden />
+            </button>
+            <button
+              onClick={onClose}
+              aria-label="Close train details"
+              className="-mr-1x flex h-10 w-10 shrink-0 items-center justify-center rounded-pill text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {showPhoto ? (
