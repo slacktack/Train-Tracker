@@ -94,3 +94,22 @@ export interface StationGroup {
   count: number;
   trains: LiveTrain[];
 }
+
+/** One active train as served by the live feed (positions are schedule-projected). */
+export interface ActiveTrain {
+  train_no: string;
+  train_name: string;
+  train_type: string;
+  start_date: string;
+  actual_time: string;
+  lat: number;
+  lon: number;
+  source: 'STATION' | 'GPS';
+  block_section?: string;
+  section?: string;
+  gps_time: string | null;
+  station_code?: string;
+  station_name?: string;
+  heading?: number;
+  speedKmh?: number;
+}

@@ -1,20 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk, Noto_Sans_Devanagari } from "next/font/google";
+import { Bricolage_Grotesque, Handjet, Noto_Sans_Devanagari } from "next/font/google";
+import { cookies } from "next/headers";
 import { QueryProvider } from "@/providers/QueryProvider";
+import { LangProvider, LANG_COOKIE, type Lang } from "@/lib/i18n/LangProvider";
+import { AppNav } from "@/components/Nav/AppNav";
+import { AlarmWatcher } from "@/components/Alarms/AlarmWatcher";
+import { ThemeSync } from "@/components/ThemeSync";
+import { NavTracker } from "@/lib/useGoBack";
+import { OfflineLayer } from "@/components/Offline/OfflineLayer";
 import { themeForIST } from "@/lib/theme";
 import "./globals.css";
 
-// Inter is tuned for UI legibility at small sizes, which is most of this
-// app's body text (11-14px labels, stats, station rows).
-const inter = Inter({
+// Bricolage Grotesque: a characterful grotesk with an optical-size axis, so
+// small UI text stays sturdy and headings get tighter and more expressive.
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-geist-sans",
-  weight: ["400", "500", "600", "700"],
+  axes: ["opsz", "wdth"],
+  display: "swap",
 });
-const spaceGrotesk = Space_Grotesk({
+// Handjet is a dot-matrix face; ELSH=16 turns the dots round like station LED boards.
+const handjet = Handjet({
   subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["500", "600", "700"],
+  variable: "--font-led",
+  axes: ["ELGR", "ELSH"],
+  display: "swap",
 });
 // Train names are frequently shown in Hindi (nameUnicode) — Inter has no
 // Devanagari glyphs, so without this the browser silently falls back to
@@ -47,8 +57,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F6F7FB" },
-    { media: "(prefers-color-scheme: dark)", color: "#08090D" },
+    { media: "(prefers-color-scheme: light)", color: "#E9EDF3" },
+    { media: "(prefers-color-scheme: dark)", color: "#070B14" },
   ],
 };
 
@@ -60,12 +70,23 @@ export default function RootLayout({
   // Day → light, night → dark (IST). Server-rendered so there's no theme flash;
   // the client useTimeTheme() hook keeps it in sync while the tab stays open.
   const theme = themeForIST();
+  const lang: Lang = cookies().get(LANG_COOKIE)?.value === 'hi' ? 'hi' : 'en';
   return (
-    <html lang="en" className={theme === 'dark' ? 'dark' : ''}>
-      <body
-        className={`${inter.variable} ${spaceGrotesk.variable} ${notoDevanagari.variable} antialiased`}
-      >
-        <QueryProvider>{children}</QueryProvider>
+    <html
+      lang={lang}
+      className={`${theme === 'dark' ? 'dark' : ''} ${bricolage.variable} ${handjet.variable} ${notoDevanagari.variable}`}
+    >
+      <body className="font-sans antialiased">
+        <LangProvider initial={lang}>
+          <QueryProvider>
+            {children}
+            <AppNav />
+            <AlarmWatcher />
+            <OfflineLayer />
+            <NavTracker />
+            <ThemeSync />
+          </QueryProvider>
+        </LangProvider>
       </body>
     </html>
   );

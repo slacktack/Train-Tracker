@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { themeForIST, TimeTheme } from '@/lib/theme';
 
 const THEME_RECHECK_MS = 60_000;
@@ -84,6 +84,11 @@ export function useTimeTheme(): {
   setPreference: (p: ThemePreference) => void;
 } {
   const { theme, preference } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  // The server can only guess from the clock; reconcile with the saved choice once mounted.
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
 
   const setPreference = useCallback((p: ThemePreference) => {
     try {

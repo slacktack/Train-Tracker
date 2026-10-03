@@ -5,7 +5,7 @@ import { Map as MapLibreMap, Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { maplibregl } from '@/lib/maplibre';
 import { LiveJourney, Station } from '@/types/train';
-import { getMapStyleUrl } from './mapStyle';
+import { addRelief, getMapStyleUrl, tintBasemap } from './mapStyle';
 import { TrainMarker } from './TrainMarker';
 import { createRoot, Root } from 'react-dom/client';
 import { TimeTheme } from '@/lib/useTimeTheme';
@@ -106,7 +106,9 @@ export function MapCanvas({ journey, theme, weather }: MapCanvasProps) {
 
     const j = journeyRef.current;
 
-    map.on('load', () => {
+    map.once('style.load', () => {
+      tintBasemap(map, theme);
+      addRelief(map, theme, apiKey);
       const routeColor = statusToRouteColor(j.delayMinutes);
       const loc = j.currentLocation;
 

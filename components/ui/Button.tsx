@@ -14,7 +14,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
         'disabled:pointer-events-none disabled:opacity-50',
         variant === 'primary' &&
-          'bg-accent text-white shadow-glow hover:brightness-110 active:scale-[0.98]',
+          '   active:scale-[0.98] cta-lamp',
         variant === 'ghost' &&
           'bg-transparent text-ink hover:bg-ink/[0.06] active:bg-ink/[0.1]',
         className

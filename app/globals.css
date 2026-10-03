@@ -4,36 +4,40 @@
 
 :root {
   color-scheme: light;
-  /* Cool slate base — reads like Linear/Vercel, not a government portal */
-  --surface: 246 247 251;
-  --surface-raised: 255 255 255;
-  --surface-elevated: 255 255 255;
-  --ink: 15 17 23;
-  --ink-muted: 100 106 120;
-  /* Electric indigo with enough saturation to feel intentional */
-  --accent: 99 102 241;
-  --accent-soft: 99 102 241;
-  --glass-border: 0 0 0;
-  --ring: 99 102 241;
-  --success: 16 185 129;
-  --warning: 245 158 11;
-  --danger: 239 68 68;
+  /* Paper on a desk: recycled stock, printer's ink, one highlighter */
+  --surface: 226 223 213;
+  --surface-raised: 247 245 238;
+  --surface-elevated: 252 251 247;
+  --ink: 20 24 38;
+  --ink-muted: 98 102 114;
+  --accent: 20 24 38;
+  --on-accent: 250 249 244;
+  --lamp: 255 210 31;
+  --stamp: 190 45 30;
+  --glass-border: 20 24 38;
+  --ring: 20 24 38;
+  --success: 31 128 78;
+  --warning: 205 105 15;
+  --danger: 190 45 30;
 }
 
 .dark {
   color-scheme: dark;
-  --surface: 8 9 13;
-  --surface-raised: 18 20 28;
-  --surface-elevated: 26 29 40;
-  --ink: 244 245 248;
-  --ink-muted: 148 152 168;
-  --accent: 129 140 248;
-  --accent-soft: 99 102 241;
+  /* Night chart: the same sheets under a platform lamp */
+  --surface: 12 14 20;
+  --surface-raised: 24 27 37;
+  --surface-elevated: 32 36 49;
+  --ink: 238 234 224;
+  --ink-muted: 150 154 168;
+  --accent: 255 210 31;
+  --on-accent: 20 24 38;
+  --lamp: 255 210 31;
+  --stamp: 255 107 91;
   --glass-border: 255 255 255;
-  --ring: 129 140 248;
-  --success: 52 211 153;
-  --warning: 251 191 36;
-  --danger: 248 113 113;
+  --ring: 255 210 31;
+  --success: 74 222 128;
+  --warning: 255 160 64;
+  --danger: 255 107 91;
 }
 
 html,
@@ -46,38 +50,71 @@ body {
   letter-spacing: -0.011em;
 }
 
-/* Ambient glow — premium depth without competing with the map */
+/* Desk: grain plus a soft vignette */
+body {
+  background-image: var(--grain);
+  background-blend-mode: multiply;
+}
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(1100px 560px at 18% -8%, rgb(var(--accent) / 0.11), transparent 58%),
-    radial-gradient(900px 480px at 92% 108%, rgb(var(--accent) / 0.07), transparent 55%),
-    radial-gradient(600px 400px at 70% 20%, rgb(var(--accent) / 0.04), transparent 50%);
+  background: radial-gradient(1200px 700px at 50% -20%, rgb(255 255 255 / 0.35), transparent 60%),
+    radial-gradient(900px 600px at 100% 120%, rgb(60 40 10 / 0.10), transparent 60%);
+}
+.dark body::before {
+  background: radial-gradient(1000px 600px at 50% -20%, rgb(255 210 31 / 0.06), transparent 60%);
 }
 
+:root {
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .25 0 0 0 0 .2 0 0 0 0 .12 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+}
+.dark { --grain: none; }
+
+/* Paper sheet: grain, hairline edge, tinted lift */
+.paper,
 .glass {
-  @apply border border-ink/[0.08] bg-surface-raised/75 backdrop-blur-glass backdrop-saturate-150 shadow-glass;
-  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  background-color: rgb(var(--surface-raised) / 0.94);
+  background-image: var(--grain);
+  background-blend-mode: multiply;
+  border: 1px solid rgb(var(--ink) / 0.12);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    0 1px 1px rgb(40 30 10 / 0.10),
+    0 10px 24px -14px rgb(40 30 10 / 0.38);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.dark .paper,
+.dark .glass {
+  background-color: rgb(var(--surface-raised) / 0.92);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06),
+    0 1px 2px rgb(0 0 0 / 0.5),
+    0 14px 32px -14px rgb(0 0 0 / 0.7);
 }
 
 .glass-strong {
-  @apply border border-ink/[0.08] bg-surface-raised/90 backdrop-blur-2xl backdrop-saturate-150;
+  background-color: rgb(var(--surface-elevated) / 0.98);
+  background-image: var(--grain);
+  background-blend-mode: multiply;
+  border: 1px solid rgb(var(--ink) / 0.14);
   box-shadow:
-    0 0 0 1px rgb(var(--glass-border) / 0.04),
-    0 1px 2px rgb(0 0 0 / 0.04),
-    inset 0 1px 0 rgb(var(--glass-border) / 0.1),
-    0 12px 40px -8px rgb(0 0 0 / 0.14);
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    0 1px 1px rgb(40 30 10 / 0.12),
+    0 18px 40px -16px rgb(40 30 10 / 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .dark .glass-strong {
+  background-color: rgb(var(--surface-elevated) / 0.97);
   box-shadow:
-    0 0 0 1px rgb(var(--glass-border) / 0.06),
-    0 1px 2px rgb(0 0 0 / 0.35),
-    inset 0 1px 0 rgb(var(--glass-border) / 0.12),
-    0 16px 48px -8px rgb(0 0 0 / 0.6);
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    0 2px 4px rgb(0 0 0 / 0.5),
+    0 20px 44px -16px rgb(0 0 0 / 0.75);
 }
 
 @layer utilities {
@@ -109,9 +146,9 @@ body::before {
 
   .shadow-glow {
     box-shadow:
-      0 0 0 1px rgb(var(--accent) / 0.2),
-      0 4px 16px -2px rgb(var(--accent) / 0.35),
-      0 8px 28px -6px rgb(var(--accent) / 0.2);
+      0 0 0 1px rgb(var(--ink) / 0.14),
+      0 2px 0 rgb(var(--ink) / 0.16),
+      0 8px 16px -8px rgb(40 30 10 / 0.4);
   }
 
   .no-scrollbar {
@@ -203,4 +240,154 @@ body::before {
     animation: none;
     background: rgb(var(--ink-muted) / 0.1);
   }
+}
+
+
+/* ---------- Station vocabulary ---------- */
+
+.led {
+  font-family: var(--font-led), ui-monospace, monospace;
+  font-variation-settings: 'ELSH' 16, 'ELGR' 2;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* LED panel: fixed colours in both themes, like the real boards */
+.board {
+  background:
+    radial-gradient(120% 90% at 50% 0%, #11161f 0%, #06080d 70%);
+  border-radius: 12px;
+  color: #ffb43a;
+  text-shadow: 0 0 6px rgb(255 160 40 / 0.55), 0 0 18px rgb(255 140 30 / 0.25);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.06),
+    inset 0 2px 12px rgb(0 0 0 / 0.7),
+    0 10px 30px -10px rgb(0 0 0 / 0.55);
+}
+.board-dim {
+  color: #8b6a2a;
+  text-shadow: none;
+}
+.board-red {
+  color: #ff5a4a;
+  text-shadow: 0 0 6px rgb(255 70 50 / 0.55), 0 0 18px rgb(255 60 40 / 0.25);
+}
+.board-green {
+  color: #4ade80;
+  text-shadow: 0 0 6px rgb(60 220 120 / 0.5), 0 0 18px rgb(40 200 100 / 0.2);
+}
+
+/* Ticket: notched stub on the left, set --stub to its width */
+.ticket {
+  --stub: 5.25rem;
+  --notch: 9px;
+  -webkit-mask:
+    radial-gradient(circle var(--notch) at var(--stub) 0, #0000 97%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at var(--stub) 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle var(--notch) at var(--stub) 0, #0000 97%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at var(--stub) 100%, #0000 97%, #000) bottom / 100% 51% no-repeat;
+}
+.ticket-perf {
+  background-image: linear-gradient(to bottom, rgb(var(--ink) / 0.28) 55%, transparent 0);
+  background-size: 1.5px 8px;
+  background-repeat: repeat-y;
+}
+
+.shadow-lamp {
+  box-shadow:
+    0 0 0 1px rgb(20 24 38 / 0.85),
+    0 3px 0 rgb(20 24 38 / 0.9);
+}
+
+/* Primary action: a yellow highlighter bar, pressed like a stamp */
+.cta-lamp {
+  background: rgb(var(--lamp));
+  color: #141826;
+  border: 1px solid rgb(20 24 38 / 0.9);
+  box-shadow: 0 3px 0 rgb(20 24 38 / 0.9);
+  transform: translateY(0);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.cta-lamp:hover { transform: translateY(-1px); box-shadow: 0 4px 0 rgb(20 24 38 / 0.9); }
+.cta-lamp:active { transform: translateY(3px); box-shadow: 0 0 0 rgb(20 24 38 / 0.9); }
+
+@keyframes route-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes ping-soft {
+  0% { transform: scale(1); opacity: 0.6; }
+  80%, 100% { transform: scale(2.6); opacity: 0; }
+}
+.ping-soft { animation: ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+:focus-visible {
+  outline: 2px solid rgb(var(--ring));
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ping-soft { animation: none; }
+}
+
+/* Active chip/pill: explicit so it never depends on generated utilities */
+.pill-on {
+  background-color: rgb(255 210 31) !important;
+  color: #141826 !important;
+  box-shadow: 0 0 0 1px rgb(20 24 38 / 0.85), 0 3px 0 rgb(20 24 38 / 0.9);
+}
+
+/* ---------- Phone and tablet behaviour (iOS Safari, Android Chrome) ---------- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+}
+/* iOS zooms the page when a focused field is under 16px */
+input, select, textarea {
+  font-size: 16px;
+}
+@media (min-width: 640px) {
+  input, select, textarea { font-size: inherit; }
+}
+/* Comfortable thumb targets for toggles and chips */
+@media (pointer: coarse) {
+  [role='radio'], button[aria-pressed], a.chip {
+    min-height: 40px;
+  }
+  .no-scrollbar { -webkit-overflow-scrolling: touch; }
+}
+/* Respect notches in landscape */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+button, a, [role='button'] { -webkit-touch-callout: none; }
+
+/* Frosted panel: the map stays visible through it */
+.panel-glass {
+  background-color: rgb(var(--surface-elevated) / 0.52) !important;
+  background-image: none !important;
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid rgb(var(--ink) / 0.2) !important;
+}
+.dark .panel-glass {
+  background-color: rgb(var(--surface-raised) / 0.45) !important;
+  border-color: rgb(255 255 255 / 0.14) !important;
+}
+.board.board-glass {
+  background: rgb(6 8 14 / 0.5);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1), 0 10px 30px -12px rgb(0 0 0 / 0.5);
 }

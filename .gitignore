@@ -29,3 +29,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .pw-browsers
+
+# local caches
+/.cache/
+/.next-*/

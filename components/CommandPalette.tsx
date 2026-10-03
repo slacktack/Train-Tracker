@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, CornerDownLeft, History, Star, X } from 'lucide-react';
+import { Search, CornerDownLeft, History, Star, X, Building2, Ticket } from 'lucide-react';
+import { useStationIndex } from '@/lib/useStationIndex';
 import { SearchResult } from '@/types/train';
 import { cn } from '@/lib/cn';
 import { LoadingCue } from '@/components/ui/LoadingCue';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
 import { useRecentsStore } from '@/store/useRecentsStore';
+import { useT } from '@/lib/i18n/useT';
 
 interface CommandPaletteProps {
   open?: boolean;
@@ -46,6 +48,7 @@ function liveNoteTone(liveNote?: string): string {
 }
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {}) {
+  const { t } = useT();
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = open ?? internalOpen;
   const isOpenRef = useRef(isOpen);
@@ -66,15 +69,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
   const inputRef = useRef<HTMLInputElement>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
+  const { search: searchStations } = useStationIndex();
   const favorites = useFavoritesStore((s) => s.favorites);
   const recents = useRecentsStore((s) => s.recents);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setOpen(!isOpenRef.current);
-      } else if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
         setOpen(false);
       }
     };
@@ -120,6 +121,16 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
     };
   }, [query, isOpen]);
 
+  const trimmed = query.trim();
+  const extras: Array<{ key: string; label: string; sub: string; href: string; kind: 'station' | 'pnr' }> = [];
+  if (/^\d{10}$/.test(trimmed)) {
+    extras.push({ key: `pnr-${trimmed}`, label: t('palette.checkPnr', { pnr: trimmed }), sub: t('palette.pnrSub'), href: `/pnr/${trimmed}`, kind: 'pnr' });
+  } else if (trimmed.length >= 2 && !/^\d+$/.test(trimmed)) {
+    for (const st of searchStations(trimmed, 3)) {
+      extras.push({ key: `st-${st.code}`, label: st.name, sub: t('palette.stationSub', { code: st.code }), href: `/station/${st.code}`, kind: 'station' });
+    }
+  }
+
   const goTo = useCallback(
     (trainNumber: string) => {
       setOpen(false);
@@ -133,18 +144,25 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelected((s) => Math.min(results.length - 1, s + 1));
+        setSelected((s) => Math.min(results.length + extras.length - 1, s + 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelected((s) => Math.max(0, s - 1));
-      } else if (e.key === 'Enter' && results[selected]) {
-        e.preventDefault();
-        goTo(results[selected].number);
+      } else if (e.key === 'Enter') {
+        if (selected < extras.length) {
+          e.preventDefault();
+          setOpen(false);
+          router.push(extras[selected].href);
+        } else if (results[selected - extras.length]) {
+          e.preventDefault();
+          goTo(results[selected - extras.length].number);
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, results, selected, goTo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, results, selected, goTo, extras.length]);
 
   if (!isOpen) return null;
 
@@ -169,17 +187,17 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search train, number, or city…"
+            placeholder={t('palette.placeholder')}
             className="w-full bg-transparent text-body text-ink outline-none placeholder:text-ink-muted/50"
             aria-label="Search trains by number, name, or city"
           />
-          {loading && <LoadingCue label="Searching…" className="hidden shrink-0 sm:inline-flex" />}
+          {loading && <LoadingCue label={t('palette.searching')} className="hidden shrink-0 sm:inline-flex" />}
           <kbd className="hidden shrink-0 rounded-md border border-ink/[0.08] bg-surface px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted sm:inline-block">
             ESC
           </kbd>
           <button
             onClick={() => setOpen(false)}
-            aria-label="Close search"
+            aria-label={t('common.close')}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink sm:hidden"
           >
             <X className="h-4 w-4" aria-hidden />
@@ -192,7 +210,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
               {favorites.length > 0 && (
                 <div>
                   <p className="flex items-center gap-1x px-1.5x pb-0.5x text-label text-ink-muted">
-                    <Star className="h-3 w-3" aria-hidden /> Favorites
+                    <Star className="h-3 w-3" aria-hidden /> {t('palette.favourites')}
                   </p>
                   {favorites.map((f) => (
                     <button
@@ -212,7 +230,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
               {recents.length > 0 && (
                 <div>
                   <p className="flex items-center gap-1x px-1.5x pb-0.5x pt-1x text-label text-ink-muted">
-                    <History className="h-3 w-3" aria-hidden /> Recently viewed
+                    <History className="h-3 w-3" aria-hidden /> {t('palette.recent')}
                   </p>
                   {recents.map((r) => (
                     <button
@@ -234,14 +252,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
 
           {!showQuickPicks && loading && results.length === 0 && (
             <div className="px-2x py-3x">
-              <LoadingCue size="block" label="Searching live trains…" />
+              <LoadingCue size="block" label={t('palette.searching')} />
             </div>
           )}
-          {!showQuickPicks && !loading && results.length === 0 && (
+          {!showQuickPicks && !loading && results.length === 0 && extras.length === 0 && (
             <div className="px-2x py-2x text-caption text-ink-muted">
               {query ? (
                 <>
-                  <p>No match for &quot;{query}&quot;.</p>
+                  <p>{t('palette.noMatch', { q: query })}</p>
                   {!/^\d+$/.test(query.trim()) && (
                     <p className="mt-0.5x">
                       Name/city search only covers currently-running and popular trains — try its 5-digit train number instead.
@@ -249,12 +267,38 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
                   )}
                 </>
               ) : (
-                <p>Type a train number, name, or city</p>
+                <p>{t('palette.typeHint')}</p>
               )}
             </div>
           )}
           {!showQuickPicks &&
-            results.map((r, i) => (
+            extras.map((x, i) => (
+              <button
+                key={x.key}
+                onClick={() => {
+                  setOpen(false);
+                  router.push(x.href);
+                }}
+                onMouseEnter={() => setSelected(i)}
+                className={cn(
+                  'flex w-full items-center gap-2x rounded-card px-2x py-1.5x text-left transition-colors',
+                  i === selected && 'bg-accent/10 ring-1 ring-inset ring-accent/15'
+                )}
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent/15 text-accent">
+                  {x.kind === 'pnr' ? <Ticket className="h-4 w-4" aria-hidden /> : <Building2 className="h-4 w-4" aria-hidden />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words text-body font-medium text-ink">{x.label}</span>
+                  <span className="block text-caption text-ink-muted">{x.sub}</span>
+                </span>
+                {i === selected && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />}
+              </button>
+            ))}
+          {!showQuickPicks &&
+            results.map((r, idx) => {
+              const i = idx + extras.length;
+              return (
               <button
                 key={r.id}
                 onClick={() => goTo(r.number)}
@@ -290,13 +334,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps = {})
                 </span>
                 {i === selected && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />}
               </button>
-            ))}
+              );
+            })}
         </div>
 
         <div className="hidden items-center gap-2x border-t border-ink/[0.08] px-3x py-1x text-label normal-case tracking-normal text-ink-muted sm:flex">
-          <span>↑↓ navigate</span>
-          <span>↵ open</span>
-          <span className="ml-auto">⌘K anywhere</span>
+          <span>{t('palette.navigate')}</span>
+          <span>{t('palette.open')}</span>
         </div>
       </div>
     </div>

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getActiveTrains, isFeedStale } from '@/lib/railjournal';
 
+export const dynamic = 'force-dynamic';
+
 interface StationGroup {
   code: string;
   name: string;

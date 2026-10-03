@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getActiveTrains, isFeedStale } from '@/lib/railjournal';
+import { currentFeedSource, getActiveTrains, isFeedStale } from '@/lib/railjournal';
+
+export const dynamic = 'force-dynamic';
 
 /**
  * Compact live feed of all active trains for the home-page map.
@@ -13,6 +15,7 @@ export async function GET() {
     return NextResponse.json({
       count: trains.length,
       stale: isFeedStale(),
+      source: currentFeedSource(),
       trains: trains.map((t) => ({
         n: t.train_no,
         name: t.train_name,

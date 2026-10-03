@@ -46,8 +46,14 @@ export function trainTypeColor(type: string): string {
   return TRAIN_TYPE_COLORS[type] ?? '#30D158';
 }
 
-export function trainTypeLabel(type: string): string {
-  return TYPE_LABELS[type] ?? 'Train';
+const TYPE_LABELS_HI: Record<string, string> = {
+  RAJ: 'राजधानी', SHT: 'शताब्दी', VNDB: 'वंदे भारत', TEJ: 'तेजस', DRNT: 'दुरंतो', JSH: 'जन शताब्दी',
+  GBR: 'गरीब रथ', AMTB: 'अमृत भारत', MEX: 'एक्सप्रेस', SUF: 'सुपरफास्ट', PEXP: 'पार्सल', TOD: 'स्पेशल',
+  PAS: 'पैसेंजर', MEMU: 'मेमू', DMU: 'डीएमयू', SUB: 'लोकल', EMU: 'ईएमयू', PILT: 'पायलट',
+};
+
+export function trainTypeLabel(type: string, lang: 'en' | 'hi' = 'en'): string {
+  return (lang === 'hi' ? TYPE_LABELS_HI[type] : TYPE_LABELS[type]) ?? (lang === 'hi' ? 'ट्रेन' : 'Train');
 }
 
 /** Canonical ordering for filter chips — premium classes first. */

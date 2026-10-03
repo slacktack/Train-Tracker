@@ -12,7 +12,7 @@ train, tap any train for live status, and track its journey station-by-station.
 - **Deep tracking page** — journey progress, elevation profile, terrain
   features, weather and sun conditions at the train's location, coach
   occupancy, runs-on schedule
-- **Command palette (⌘K)** — jump straight to any train by number or name
+- **Search** — jump straight to any train by number or name, or to a station or PNR
 - **Filters** — by train type (Vande Bharat, Rajdhani, Shatabdi…), motion
   (moving / at station), and speed
 - **Auto light/dark theme** — follows IST day/night with manual override

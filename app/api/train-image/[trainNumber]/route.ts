@@ -1,27 +1,14 @@
-import { NextResponse } from 'next/server';
-import { getTrainImage } from '@/lib/railjournal';
-import { getCached, setCached } from '@/lib/redis-cache';
+import { NextRequest, NextResponse } from 'next/server';
+import { getTrainPhoto } from '@/lib/sources/train-photo';
 
-/** Train photo URL (Railfans gallery). Cached 24h — images rarely change. */
-export async function GET(
-  _req: Request,
-  { params }: { params: { trainNumber: string } }
-) {
-  const { trainNumber } = params;
-  const cacheKey = `train-image:${trainNumber}`;
-
-  const cached = await getCached<{ imageUrl: string } | null>(cacheKey);
-  if (cached) {
-    return NextResponse.json(cached.imageUrl ? cached : { imageUrl: null });
-  }
-
-  try {
-    const imageUrl = await getTrainImage(trainNumber);
-    await setCached(cacheKey, { imageUrl }, 86_400);
-    return NextResponse.json({ imageUrl });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[train-image] fetch failed for ${trainNumber}:`, message);
-    return NextResponse.json({ imageUrl: null });
-  }
+/** Photo metadata for a train (Wikimedia Commons). Image bytes come from ./img so they cache locally. */
+export async function GET(req: NextRequest, { params }: { params: { trainNumber: string } }) {
+  if (!/^\d{5}$/.test(params.trainNumber)) return NextResponse.json({ error: 'invalid train number' }, { status: 400 });
+  const photo = await getTrainPhoto(params.trainNumber, req.nextUrl.searchParams.get('type') ?? undefined);
+  return NextResponse.json(
+    photo
+      ? { src: `/api/train-image/${params.trainNumber}/img`, credit: photo.credit, license: photo.license, pageUrl: photo.pageUrl, exact: photo.exact }
+      : { src: null },
+    { headers: { 'Cache-Control': 'public, max-age=3600' } },
+  );
 }

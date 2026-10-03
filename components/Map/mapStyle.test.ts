@@ -3,11 +3,11 @@ import { getMapStyleUrl } from './mapStyle';
 
 describe('getMapStyleUrl', () => {
   it('uses the dark style id for dark theme', () => {
-    expect(getMapStyleUrl('dark', 'KEY')).toContain('streets-v2-dark');
+    expect(getMapStyleUrl('dark', 'KEY')).toContain('dataviz-dark');
   });
 
   it('uses the light style id for light theme', () => {
-    expect(getMapStyleUrl('light', 'KEY')).toContain('streets-v2-light');
+    expect(getMapStyleUrl('light', 'KEY')).toContain('dataviz-light');
   });
 
   it('includes the API key as a query param', () => {

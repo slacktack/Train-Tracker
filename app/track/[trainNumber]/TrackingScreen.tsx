@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
+  Armchair,
   ArrowLeft,
-  ArrowRight,
   Ban,
   Bell,
   Check,
@@ -19,7 +19,6 @@ import {
 import { useJourney } from '@/hooks/useJourney';
 import { useRouteContext } from '@/hooks/useRouteContext';
 import { useWeather } from '@/hooks/useWeather';
-import { useTrainPhoto } from '@/hooks/useTrainPhoto';
 import { MapCanvas } from '@/components/Map/MapCanvas';
 import { BottomSheet } from '@/components/BottomSheet/BottomSheet';
 import { TripStatBadge } from '@/components/TripStatBadge';
@@ -28,6 +27,12 @@ import { ContextCard } from '@/components/ContextCard';
 import { StationTimeline } from '@/components/StationTimeline';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { Button } from '@/components/ui/Button';
+import { TrainHero } from '@/components/Journey/TrainHero';
+import { WhereNowCard } from '@/components/Journey/WhereNowCard';
+import { RouteDiagram } from '@/components/Journey/RouteDiagram';
+import { LocateMe } from '@/components/Journey/LocateMe';
+import { useT } from '@/lib/i18n/useT';
+import { useGoBack } from '@/lib/useGoBack';
 import { CircularGauge } from '@/components/ui/CircularGauge';
 import { LoadingCue, LoadingSkeleton } from '@/components/ui/LoadingCue';
 import { getSunInfo } from '@/lib/sun';
@@ -38,7 +43,9 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { useTrackingStore } from '@/store/useTrackingStore';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
 import { useRecentsStore } from '@/store/useRecentsStore';
-import { trainTypeColor, trainTypeLabel } from '@/lib/train-type';
+import { AlarmDialog } from '@/components/Alarms/AlarmDialog';
+import { useAlarmStore, useAlarmUiStore } from '@/store/useAlarmStore';
+import { trainTypeColor } from '@/lib/train-type';
 
 function relativeUpdated(iso: string | undefined): string {
   if (!iso) return '—';
@@ -74,11 +81,20 @@ function useCoachChart(trainNumber: string, originCode: string | undefined, runs
     queryKey: ['coach-chart', trainNumber, originCode, todayInISTISO()],
     queryFn: async () => {
       if (!originCode || !runsToday) return null;
-      const res = await fetch(
-        `/api/coach-chart/${trainNumber}?station=${originCode}&date=${todayInISTISO()}`
-      );
+      const res = await fetch(`/api/seats/${trainNumber}?station=${originCode}&date=${todayInISTISO()}`);
       if (!res.ok) return null;
-      return (await res.json()) as CoachChart;
+      const seats = (await res.json()) as {
+        source: string;
+        coaches: Array<{ coachName: string; classCode: string; positionFromEngine: number; vacantBerths: number | null }>;
+      };
+      if (seats.source === 'none') return null;
+      return {
+        trainNo: trainNumber,
+        trainName: '',
+        from: originCode,
+        to: '',
+        coaches: seats.coaches.map((c) => ({ ...c, vacantBerths: c.vacantBerths ?? 0 })),
+      } as CoachChart;
     },
     enabled: !!originCode && runsToday,
     staleTime: 10 * 60 * 1000,
@@ -233,7 +249,7 @@ function PreJourneyDashboard({
   origin: string | undefined;
   platform: string | undefined;
 }) {
-  const [reminder, setReminder] = useState(false);
+  const openAlarm = useAlarmUiStore((s) => s.setOpen);
   return (
     <div className="flex flex-col gap-2x rounded-card border border-accent/20 bg-gradient-to-br from-accent/15 to-accent/5 p-3x shadow-card">
       <div className="flex items-center justify-between">
@@ -250,19 +266,18 @@ function PreJourneyDashboard({
         From {origin ?? 'origin'}
         {platform ? ` · Platform ${platform}` : ''}
       </p>
-      <Button
-        variant={reminder ? 'ghost' : 'primary'}
-        onClick={() => setReminder((v) => !v)}
-        className="self-start"
-      >
+      <Button variant="primary" onClick={() => openAlarm(true)} className="self-start">
         <Bell className="mr-1x h-4 w-4" aria-hidden />
-        {reminder ? 'Reminder set' : 'Remind me'}
+        Set arrival alarm
       </Button>
     </div>
   );
 }
 
 export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
+  const { t } = useT();
+  const goBack = useGoBack('/');
+  const [allStops, setAllStops] = useState(false);
   const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [journeyDate, setJourneyDate] = useState<string | undefined>(undefined);
@@ -271,9 +286,9 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
   const { theme } = useTimeTheme();
   const { data: journey, isLoading, error, refetch } = useJourney(trainNumber, journeyDate);
   const { data: schedule } = useTrainSchedule(trainNumber);
-  const photo = useTrainPhoto(trainNumber);
 
   const { isFavorite, toggleFavorite } = useFavoritesStore();
+  const hasAlarm = useAlarmStore((s) => s.alarms.some((a) => a.trainNumber === trainNumber && !a.firedAt));
   const pushRecent = useRecentsStore((s) => s.pushRecent);
 
   // Remember every viewed train so the search palette can offer quick picks.
@@ -379,55 +394,24 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
     }
   };
 
-  const heroImage = photo.data ? (
-    <div className="relative h-28 w-full overflow-hidden rounded-card sm:h-32">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={photo.data} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2x p-2x">
-        <div className="min-w-0">
-          <p className="break-words text-subhead leading-tight text-white">
-            {journey.number} · {trainTypeLabel(journey.type ?? '')}
-          </p>
-          <p className="break-words text-body font-medium leading-snug text-white/90">{journey.name}</p>
-          {journey.nameUnicode && (
-            <p className="break-words font-devanagari text-caption leading-snug text-white/70">{journey.nameUnicode}</p>
-          )}
-        </div>
-        <StatusPill status={journey.status} delayMinutes={journey.delayMinutes} />
-      </div>
-    </div>
-  ) : (
-    <div
-      className="relative h-24 w-full overflow-hidden rounded-card sm:h-28"
-      style={{
-        background: `linear-gradient(135deg, ${typeColor}26 0%, ${typeColor}0d 45%, transparent 75%)`,
-      }}
-    >
-      <span
-        className="absolute right-2x top-1/2 -translate-y-1/2 select-none text-7xl font-bold tabular-nums"
-        style={{ color: `${typeColor}1a` }}
-      >
-        {journey.number}
-      </span>
-      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2x p-2x">
-        <div className="min-w-0">
-          <p className="break-words text-subhead leading-tight" style={{ color: typeColor }}>
-            {journey.number} · {trainTypeLabel(journey.type ?? '')}
-          </p>
-          <p className="break-words text-body font-medium leading-snug">{journey.name}</p>
-          {journey.nameUnicode && (
-            <p className="break-words font-devanagari text-caption leading-snug text-ink-muted">{journey.nameUnicode}</p>
-          )}
-        </div>
-        <StatusPill status={journey.status} delayMinutes={journey.delayMinutes} />
-      </div>
-    </div>
+  const heroImage = (
+    <TrainHero
+      number={journey.number}
+      name={journey.name}
+      nameUnicode={journey.nameUnicode}
+      type={journey.type ?? ''}
+      speedKmh={journey.speedKmh}
+      showSpeed={journey.status !== 'not_started' && journey.status !== 'completed'}
+      isFav={isFav}
+      onFav={() => toggleFavorite({ number: trainNumber, name: journey.name })}
+      className="-mx-2x -mt-2x rounded-t-card"
+    />
   );
 
   const panelBody = (
-    <div className="flex flex-col gap-2x">
+    <div className="flex flex-col gap-3">
       {heroImage}
+      <WhereNowCard journey={journey} />
       {schedule && <RunsOnBadge runsOn={schedule.trainRunsOn} />}
       {journey.status === 'cancelled' && (
         <div className="flex items-center gap-2x rounded-card border border-status-heavyDelay/25 bg-status-heavyDelay/10 px-2x py-1.5x">
@@ -452,73 +436,30 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         />
       )}
 
-      {/* "Where is my train right now" — the single most-asked question —
-          leads the panel instead of being buried below stats and speed. */}
-      <div className="flex flex-col gap-1x">
-        <div className="flex items-center justify-between gap-1.5x rounded-card bg-surface-raised px-2x py-1x shadow-card">
-          <span className="min-w-0 flex-1 break-words text-body font-semibold leading-snug">
-            {journey.origin.name}
-          </span>
-          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-ink-muted" aria-hidden />
-          <span className="min-w-0 flex-1 break-words text-right text-body font-semibold leading-snug">
-            {journey.destination.name}
-          </span>
+      <div>
+        <div className="h-2.5 overflow-hidden rounded-full bg-ink/15" role="progressbar" aria-valuenow={Math.round(journey.completionPercentage)} aria-valuemin={0} aria-valuemax={100}>
+          <div className="h-full rounded-full transition-[width] duration-700 ease-out" style={{ width: `${journey.completionPercentage}%`, background: typeColor }} />
         </div>
+        <p className="mt-1.5 flex items-center justify-between gap-2 text-caption font-semibold text-ink-muted">
+          <span className="min-w-0 break-words">{journey.origin.name || journey.origin.code}</span>
+          <span className="shrink-0 text-ink">{Math.round(journey.completionPercentage)}%</span>
+          <span className="min-w-0 break-words text-right">{journey.destination.name || journey.destination.code}</span>
+        </p>
+      </div>
 
-        {journey.currentStation && (
-          <div className="flex items-center gap-2x rounded-card bg-surface-raised px-2x py-1x text-body">
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span
-                className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
-                style={{ backgroundColor: typeColor }}
-              />
-              <span
-                className="relative inline-flex h-2 w-2 rounded-full"
-                style={{ backgroundColor: typeColor }}
-              />
-            </span>
-            <span className="min-w-0 flex-1 break-words leading-snug">
-              <span className="text-ink-muted">At </span>
-              <span className="font-medium">{journey.currentStation.name}</span>
-              {journey.currentStation.platform && (
-                <span className="text-ink-muted"> · PF {journey.currentStation.platform}</span>
-              )}
-            </span>
-            {journey.currentStation.scheduledDeparture && (
-              <span className="shrink-0 text-caption tabular-nums text-ink-muted">
-                dep {journey.currentStation.actualDeparture ?? journey.currentStation.scheduledDeparture}
-              </span>
-            )}
-          </div>
-        )}
+      <LocateMe journey={journey} />
 
-        {journey.nextStation && (
-          <div className="flex items-center gap-2x rounded-card bg-surface-raised px-2x py-1x text-body">
-            <span className="h-2 w-2 shrink-0 rounded-full border-2 border-ink-muted/30" />
-            <span className="min-w-0 flex-1 break-words leading-snug">
-              <span className="text-ink-muted">Next </span>
-              <span className="font-medium">{journey.nextStation.name}</span>
-              <span className="text-ink-muted"> · arr {journey.nextStation.scheduledArrival}</span>
-            </span>
-            <span className="shrink-0 text-caption tabular-nums text-ink-muted">
-              {journey.nextStation.distanceKm ? `${journey.nextStation.distanceKm} km` : ''}
-            </span>
-          </div>
-        )}
-
-        <div className="mt-0.5x h-1.5 overflow-hidden rounded-pill bg-ink-muted/15">
-          <div
-            className="h-full rounded-pill bg-accent transition-[width] duration-700 ease-out"
-            style={{ width: `${journey.completionPercentage}%` }}
-          />
-        </div>
-        <div className="flex items-center justify-between gap-1x text-caption text-ink-muted">
-          <span className="min-w-0 flex-1 break-words">{journey.origin.code}</span>
-          <span className="shrink-0 font-medium tabular-nums text-ink">
-            {Math.round(journey.completionPercentage)}%
-          </span>
-          <span className="min-w-0 flex-1 break-words text-right">{journey.destination.code}</span>
-        </div>
+      <div>
+        <RouteDiagram journey={journey} />
+        <button
+          type="button"
+          onClick={() => setAllStops((v) => !v)}
+          aria-expanded={allStops}
+          className="mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border border-ink/25 text-caption font-bold text-ink-muted hover:text-ink"
+        >
+          {allStops ? t('route.hide') : `${t('card.stops')} · ${journey.stations.length}`}
+        </button>
+        {allStops && <div className="mt-2"><StationTimeline stations={journey.stations} status={journey.status} /></div>}
       </div>
 
       {/* Current conditions right under "where is my train" — no scrolling
@@ -606,13 +547,6 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         </div>
       </div>
 
-      <div>
-        <p className="mb-1.5x text-label text-ink-muted">
-          Station timeline · {journey.stations.length} stops
-        </p>
-        <StationTimeline stations={journey.stations} status={journey.status} />
-      </div>
-
       {coachChart.isLoading ? (
         <div className="flex flex-col gap-1x">
           <LoadingSkeleton className="h-16 w-full" label="Coach chart loading" />
@@ -627,6 +561,7 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
   return (
     <div className="relative min-h-screen bg-surface">
       <MapCanvas journey={journey} theme={theme} weather={weather.data} />
+      <AlarmDialog journey={journey} />
 
       <nav
         aria-label="Page navigation"
@@ -635,12 +570,12 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
         <div className="flex items-center gap-1.5x">
           <button
             type="button"
-            onClick={() => router.push('/')}
+            onClick={goBack}
             className="glass-strong flex items-center gap-1x rounded-pill px-2x py-1x text-body font-bold text-ink transition-colors hover:text-accent"
-            aria-label="Back to all trains on the map"
+            aria-label={t('common.back')}
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
-            <span className="hidden sm:inline">All trains</span>
+            <span className="hidden sm:inline">{t('common.back')}</span>
           </button>
           <button
             type="button"
@@ -667,6 +602,26 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
           </button>
           <button
             type="button"
+            onClick={() => useAlarmUiStore.getState().setOpen(true)}
+            className="glass-strong relative flex h-9 w-9 items-center justify-center rounded-pill text-ink-muted transition-colors hover:text-ink active:scale-95"
+            aria-label="Set arrival alarm"
+            title="Set arrival alarm"
+          >
+            <Bell className="h-4 w-4" aria-hidden />
+            {hasAlarm && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" aria-hidden />}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/track/${trainNumber}/seats?station=${journey.origin.code}&date=${todayInISTISO()}`)}
+            className="glass-strong flex h-9 items-center gap-1x rounded-pill px-2x text-body font-bold text-ink-muted transition-colors hover:text-ink active:scale-95"
+            aria-label="Coaches and seats"
+            title="Coaches and seats"
+          >
+            <Armchair className="h-4 w-4" aria-hidden />
+            <span className="hidden sm:inline">Seats</span>
+          </button>
+          <button
+            type="button"
             onClick={shareTrain}
             className="glass-strong flex h-9 w-9 items-center justify-center rounded-pill text-ink-muted transition-colors hover:text-ink active:scale-95"
             aria-label="Share this train"
@@ -686,9 +641,6 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
           >
             <Search className="h-4 w-4" aria-hidden />
             <span className="hidden sm:inline">Track another</span>
-            <kbd className="hidden rounded-md border border-ink-muted/20 bg-surface-raised/60 px-1x py-0.5x text-label normal-case tracking-normal text-ink-muted md:inline">
-              ⌘K
-            </kbd>
           </button>
         </div>
       </nav>
