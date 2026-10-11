@@ -15,6 +15,7 @@ import { useT } from '@/lib/i18n/useT';
 import { DEFAULT_FILTERS, MapFilters } from '@/components/Home/MapFilterBar';
 import { StationBoard } from '@/components/Home/StationBoard';
 import { CommandPalette } from '@/components/CommandPalette';
+import { TrainListDialog } from '@/components/Home/TrainListDialog';
 import { useTimeTheme } from '@/lib/useTimeTheme';
 import { useJourney } from '@/hooks/useJourney';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
@@ -87,6 +88,7 @@ export default function HomePage() {
   const [selectedStation, setSelectedStation] = useState<StationGroup | null>(null);
   const [filters, setFilters] = useState<MapFilters>(DEFAULT_FILTERS);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const { theme } = useTimeTheme();
   const router = useRouter();
   const { data: selectedJourney } = useJourney(selected?.n ?? '');
@@ -258,6 +260,7 @@ export default function HomePage() {
         stale={stale}
         favorites={favorites}
         onOpenTrain={(n) => router.push(`/track/${n}`)}
+        onOpenList={() => setListOpen(true)}
         feed={feed}
         now={now}
         hideTrigger={!!(selected || selectedStation)}
@@ -303,6 +306,17 @@ export default function HomePage() {
         </div>
       )}
 
+      {listOpen && (
+        <TrainListDialog
+          trains={visibleTrains}
+          onClose={() => setListOpen(false)}
+          onPick={(x) => {
+            setListOpen(false);
+            setSelectedStation(null);
+            setSelected(x);
+          }}
+        />
+      )}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </main>
   );

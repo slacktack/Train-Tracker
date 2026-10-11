@@ -9,6 +9,7 @@ import { ApiError, getJSON, type BoardResponse } from '@/lib/client-api';
 import { cn } from '@/lib/cn';
 import { delayTone, formatDelayMin, hhmmToMin, isoDate, toIsoDate } from '@/lib/format';
 import { trainTypeColor } from '@/lib/train-type';
+import { StationCompanion, StationFacts } from './StationCompanion';
 import { useStationStore } from '@/store/useRecentsExtras';
 import { useRouter } from 'next/navigation';
 import { StationPicker } from '@/components/Search/StationPicker';
@@ -102,7 +103,7 @@ function BoardItem({ row, tab, onOpen }: { row: BoardRow; tab: Tab; onOpen: () =
   );
 }
 
-export function StationBoardScreen({ code }: { code: string }) {
+export function StationBoardScreen({ code, train }: { code: string; train?: string }) {
   const { t } = useT();
   const goBack = useGoBack('/station');
   const local = useStationName();
@@ -167,7 +168,10 @@ export function StationBoardScreen({ code }: { code: string }) {
           <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-status-onTime" aria-hidden />
           {t('station.liveBoard')}{updated ? ` · ${t('station.updated', { time: updated })}` : ''} · {t('station.refreshes')}
         </p>
+        <StationFacts code={code} />
       </div>
+
+      {train && <StationCompanion code={code} stationName={station?.name ?? code} train={train} />}
 
       <div className="relative z-20 mb-3 grid gap-2 sm:grid-cols-2">
         <label className="flex h-12 items-center gap-2 rounded-2xl border border-ink/20 bg-surface-elevated/70 px-3 focus-within:border-ink/60">

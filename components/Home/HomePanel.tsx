@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronRight, RefreshCcw, SlidersHorizontal, Star, X } from 'lucide-react';
+import { ChevronRight, List, RefreshCcw, SlidersHorizontal, Star, X } from 'lucide-react';
 import type { LiveTrain } from '@/types/train';
 import { cn } from '@/lib/cn';
 import { formatAge } from '@/lib/format';
@@ -42,6 +42,7 @@ interface HomePanelProps {
   stale: boolean;
   favorites: SavedTrain[];
   onOpenTrain: (n: string) => void;
+  onOpenList: () => void;
   feed: FeedMeta | null;
   now: number;
   hideTrigger?: boolean;
@@ -63,7 +64,7 @@ function LedReadout({ label, value, unit, tone = 'amber' }: { label: string; val
   );
 }
 
-function PanelBody({ trains, visible, filters, onFilters, onRefresh, refreshing, stale, favorites, onOpenTrain, feed, now }: HomePanelProps) {
+function PanelBody({ trains, visible, filters, onFilters, onRefresh, refreshing, stale, favorites, onOpenTrain, onOpenList, feed, now }: HomePanelProps) {
   const { t, lang } = useT();
   const fresh = feedLine(feed, stale, now, t, lang);
   const total = trains.length;
@@ -140,6 +141,14 @@ function PanelBody({ trains, visible, filters, onFilters, onRefresh, refreshing,
           </button>
         )}
       </section>
+
+      <button
+        type="button"
+        onClick={onOpenList}
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-ink/25 px-3 text-body font-bold hover:bg-ink/[0.05]"
+      >
+        <List className="h-4 w-4" aria-hidden /> {t('list.open', { n: nf.format(visible.length) })}
+      </button>
 
       {/* filters */}
       <section aria-label={t('home.filters')}>

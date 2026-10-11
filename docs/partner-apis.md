@@ -1,6 +1,6 @@
 # Train Tracker: no-login endpoint research (2026-10-11)
 
-> **Wired in the app:** ConfirmTkt seat-availability deep link + monthly availability (`/api/availability/monthly`), RailYatri on-time rating (merged into `/api/trains/between`), ixigo/Paytm/RailYatri/MakeMyTrip/IRCTC booking links and IRCTC eCatering links (`lib/booking.ts`).
+> **Wired in the app:** ConfirmTkt seat-availability deep link + monthly availability (`/api/availability/monthly`), RailYatri on-time rating (merged into `/api/trains/between`), ixigo/Paytm/RailYatri/MakeMyTrip/IRCTC booking links and IRCTC eCatering links (`lib/booking.ts`), and ixigo station info (`/api/station-info/[code]`).
 > **Correction:** ConfirmTkt `CacheTime`/`cacheTime` stamps are **IST** without a zone suffix (the newest stamp in a fresh search equals the current IST time).
 
 Sample: NDLS→MMCT is **12952** (12951 runs MMCT→NDLS; querying 12951 NDLS→MMCT returns nulls). DOJ 25-10-2026.

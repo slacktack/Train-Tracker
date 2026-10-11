@@ -6,7 +6,8 @@ export function generateMetadata({ params }: { params: { code: string } }): Meta
   return { title: `${params.code.toUpperCase()} board · Train Tracker` };
 }
 
-export default function StationPage({ params }: { params: { code: string } }) {
+export default function StationPage({ params, searchParams }: { params: { code: string }; searchParams: { train?: string } }) {
   if (!/^[A-Za-z0-9]{1,6}$/.test(params.code)) notFound();
-  return <StationBoardScreen code={params.code.toUpperCase()} />;
+  const train = /^\d{5}$/.test(searchParams.train ?? '') ? searchParams.train : undefined;
+  return <StationBoardScreen code={params.code.toUpperCase()} train={train} />;
 }
