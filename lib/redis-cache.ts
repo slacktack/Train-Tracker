@@ -5,7 +5,7 @@ let redis: Redis | null = null;
 
 const memoryCache = new Map<string, { value: unknown; expiresAt: number }>();
 
-function getClient(): Redis | null {
+export function getClient(): Redis | null {
   if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
     return null;
   }

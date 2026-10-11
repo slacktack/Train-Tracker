@@ -16,6 +16,7 @@ import { useStationName } from '@/lib/i18n/stationNames';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
 import { TrendsPanel, trendsKey, trendsUrl } from './TrendsPanel';
 import { OtherDates } from './OtherDates';
+import { SeatWatchControls } from '@/components/Alerts/SeatWatchControls';
 
 function niceDuration(hhmm: string, lang: 'en' | 'hi'): string {
   const m = hhmm.match(/^(\d+):(\d{2})$/);
@@ -237,6 +238,15 @@ export function TrainResultCard({ train, date, quota, weekday, fromNote, toNote,
           {tilesVisible && openClass && (
             <div className="mt-2 rounded-lg border border-ink/10 bg-surface/60 px-3 pb-3">
               {checkedAt && <p className="pt-2.5 text-caption text-ink-muted">{t('trains.classChecked', { cls: openClass, age: formatAge(checkedAt, lang) })}</p>}
+              {!departed && (
+                <SeatWatchControls
+                  train={{ number: train.number, name: train.name, from: train.from.code, to: train.to.code }}
+                  date={date}
+                  cls={openClass}
+                  quota={quota}
+                  status={train.classes.find((c) => c.cls === openClass)?.status ?? ''}
+                />
+              )}
               {!departed && <OtherDates train={train.number} from={train.from.code} to={train.to.code} cls={openClass} quota={quota} date={date} onPick={onPickDate} />}
               <TrendsPanel train={train.number} cls={openClass} quota={quota} date={date} />
             </div>

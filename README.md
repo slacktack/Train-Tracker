@@ -41,7 +41,17 @@ Required env vars (see `.env.example`):
 |---|---|
 | `RAILRADAR_API_KEY` | Live train feed + journey data |
 | `NEXT_PUBLIC_MAPTILER_API_KEY` | Map basemaps |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Response caching |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Response caching; also stores push subscriptions (required for background alerts in production) |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push for background alerts (`npx web-push generate-vapid-keys`) |
+| `CRON_SECRET` | Bearer token for `/api/cron/watches` |
+
+### Background alerts
+
+Seat watches, Tatkal reminders and trip delay/platform alerts are checked while the app is open. To deliver them when it is closed:
+
+1. Set the VAPID keys, `CRON_SECRET` and Upstash Redis env vars on the deployment.
+2. Add the repo secrets `APP_URL` (the deployed origin) and `CRON_SECRET`. The workflow `.github/workflows/watch-alerts.yml` then calls `/api/cron/watches` every 15 minutes. Vercel Hobby crons only run daily, so the workflow handles the schedule instead.
+3. Users turn on background alerts from **Saved → Alerts**.
 
 ## Scripts
 

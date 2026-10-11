@@ -11,6 +11,8 @@ import { maskPnr, routeKey, useRecentPnrStore, useRecentRoutesStore, useStationS
 import { useAlarmStore } from '@/store/useAlarmStore';
 import { EmptyState, GlassCard, PageHeader, PageShell } from '@/components/ui/kit';
 import { MyTrips } from '@/components/Trips/MyTrips';
+import { AlertsPanel } from '@/components/Alerts/AlertsPanel';
+import { useWatchStore } from '@/store/useWatchStore';
 import { PendingBookingBanner } from '@/components/Trips/PendingBookingBanner';
 
 function Group({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
@@ -61,8 +63,9 @@ export function SavedScreen() {
   const { pnrs, remove: removePnr } = useRecentPnrStore();
   const { routes, remove: removeRoute } = useRecentRoutesStore();
   const { alarms, remove: removeAlarm } = useAlarmStore();
+  const { watches, remove: removeWatch } = useWatchStore();
 
-  const total = favorites.length + recents.length + stations.length + pnrs.length + routes.length + alarms.length;
+  const total = favorites.length + recents.length + stations.length + pnrs.length + routes.length + alarms.length + watches.length;
   const clearAll = () => {
     favorites.forEach((f) => removeFavorite(f.number));
     recents.forEach((r) => removeRecent(r.number));
@@ -70,6 +73,7 @@ export function SavedScreen() {
     pnrs.forEach((p) => removePnr(p.pnr));
     routes.forEach((r) => removeRoute(routeKey(r)));
     alarms.forEach((a) => removeAlarm(a.id));
+    watches.forEach((w) => removeWatch(w.id));
   };
   const rm = t('common.remove');
 
@@ -78,6 +82,7 @@ export function SavedScreen() {
       <PageHeader title={t('saved.title')} subtitle={t('saved.subtitle')} />
       <PendingBookingBanner className="mt-4" />
       <MyTrips />
+      <AlertsPanel />
       {total === 0 && <EmptyState title={t('saved.empty')} hint={t('saved.emptyHint')} />}
 
       {alarms.length > 0 && (

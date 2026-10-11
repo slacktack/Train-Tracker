@@ -5,6 +5,7 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { LangProvider, LANG_COOKIE, type Lang } from "@/lib/i18n/LangProvider";
 import { AppNav } from "@/components/Nav/AppNav";
 import { AlarmWatcher } from "@/components/Alarms/AlarmWatcher";
+import { WatchWatcher } from "@/components/Alerts/WatchWatcher";
 import { ThemeSync } from "@/components/ThemeSync";
 import { NavTracker } from "@/lib/useGoBack";
 import { OfflineLayer } from "@/components/Offline/OfflineLayer";
@@ -82,6 +83,7 @@ export default function RootLayout({
             {children}
             <AppNav />
             <AlarmWatcher />
+            <WatchWatcher />
             <OfflineLayer />
             <NavTracker />
             <ThemeSync />

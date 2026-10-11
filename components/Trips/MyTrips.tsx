@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, Building2, CalendarDays, Radio, Route, Ticket, Utensils, X } from 'lucide-react';
+import { Bell, BellRing, Building2, CalendarDays, Radio, Route, Ticket, Utensils, X } from 'lucide-react';
 import { ecateringUrl } from '@/lib/booking';
 import { daysFromToday, formatDay } from '@/lib/format';
 import { useT } from '@/lib/i18n/useT';
 import { useStationName } from '@/lib/i18n/stationNames';
 import { isPnrExpired, maskPnr, useRecentPnrStore, type RecentPnr } from '@/store/useRecentsExtras';
 import { useAlarmStore } from '@/store/useAlarmStore';
+import { useWatchStore } from '@/store/useWatchStore';
+import { tripWatchId } from '@/lib/watch';
 
 type Trip = RecentPnr & { trainNo: string; doj: string };
 
@@ -23,6 +25,7 @@ export function MyTrips() {
   const local = useStationName();
   const { pnrs, remove } = useRecentPnrStore();
   const alarms = useAlarmStore((s) => s.alarms);
+  const { watches, toggle } = useWatchStore();
   const trips = upcomingTrips(pnrs);
   if (trips.length === 0) return null;
 
@@ -71,7 +74,21 @@ export function MyTrips() {
                   <Bell className="h-3.5 w-3.5" aria-hidden /> {t('saved.alarmLine', { station: local(alarm.stationCode, alarm.stationName), lead: alarm.leadMin })}
                 </p>
               )}
-              <div className="mt-3 grid grid-cols-2 gap-2 text-caption font-bold">
+              {board?.code && (() => {
+                const id = tripWatchId({ train: p.trainNo, station: board.code, date: p.doj });
+                const on = watches.some((w) => w.id === id);
+                return (
+                  <button
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggle({ kind: 'trip', id, train: p.trainNo, trainName: p.trainName ?? '', station: board.code, stationName: board.name, date: p.doj })}
+                    className={`mt-3 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg border px-2 text-caption font-bold ${on ? 'pill-on border-ink' : 'border-ink/25 hover:bg-ink/[0.05]'}`}
+                  >
+                    <BellRing className="h-4 w-4" aria-hidden /> {on ? t('trip.alertsOn') : t('trip.alertsOff')}
+                  </button>
+                );
+              })()}
+              <div className="mt-2 grid grid-cols-2 gap-2 text-caption font-bold">
                 <Link href={`/track/${p.trainNo}`} className="cta-lamp flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2">
                   <Radio className="h-4 w-4" aria-hidden /> {t('trip.track')}
                 </Link>
@@ -82,7 +99,7 @@ export function MyTrips() {
                   <Bell className="h-4 w-4" aria-hidden /> {alarm ? t('trip.alarmEdit') : t('trip.alarm')}
                 </Link>
                 {board?.code ? (
-                  <Link href={`/station/${board.code}`} className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-ink/25 px-2 hover:bg-ink/[0.05]">
+                  <Link href={`/station/${board.code}?train=${p.trainNo}`} className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-ink/25 px-2 hover:bg-ink/[0.05]">
                     <Building2 className="h-4 w-4" aria-hidden /> {t('trip.board')}
                   </Link>
                 ) : null}
