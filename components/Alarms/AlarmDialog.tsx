@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useDialogFocus } from '@/lib/useDialogFocus';
 import { Bell, BellOff, X } from 'lucide-react';
 import type { LiveJourney } from '@/types/train';
 import { cn } from '@/lib/cn';
@@ -21,12 +22,8 @@ export function AlarmDialog({ journey }: { journey: LiveJourney }) {
   useEffect(() => {
     setPerm('Notification' in window ? Notification.permission : 'unsupported');
   }, [open]);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, setOpen]);
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialog, open, () => setOpen(false));
 
   if (!open) return null;
   const existing = alarms.find((a) => a.id === alarmId(journey.number, station));
@@ -43,7 +40,7 @@ export function AlarmDialog({ journey }: { journey: LiveJourney }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} aria-hidden />
-      <div role="dialog" aria-modal="true" aria-label={t('alarm.title')} className="glass-strong relative w-full max-w-md rounded-t-sheet p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:rounded-sheet">
+      <div ref={dialog} role="dialog" aria-modal="true" aria-label={t('alarm.title')} className="glass-strong relative w-full max-w-md rounded-t-sheet p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:rounded-sheet">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-subhead">{t('alarm.title')}</h2>

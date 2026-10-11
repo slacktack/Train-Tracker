@@ -1,18 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
-import { Armchair, ChevronDown, Radio, Star, Utensils } from 'lucide-react';
+import { Armchair, ArrowUpRight, ChevronDown, ChevronRight, Radio, Star, Utensils } from 'lucide-react';
 import type { AvailabilityTrain, ClassAvailability } from '@/lib/sources/confirmtkt';
 import { cn } from '@/lib/cn';
-import { formatInr, hhmmToMin } from '@/lib/format';
+import { formatAge, formatInr, hhmmToMin, parseUpstreamTime } from '@/lib/format';
+import { OTHER_BOOKING, PRIMARY_BOOKING } from '@/lib/booking';
+import { usePendingBooking } from '@/store/usePendingBooking';
 import { getJSON, type TrendsResponse } from '@/lib/client-api';
 import { humanMinutes } from '@/lib/where-now';
 import { useT } from '@/lib/i18n/useT';
 import { useStationName } from '@/lib/i18n/stationNames';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
 import { TrendsPanel, trendsKey, trendsUrl } from './TrendsPanel';
+import { OtherDates } from './OtherDates';
 
 function niceDuration(hhmm: string, lang: 'en' | 'hi'): string {
   const m = hhmm.match(/^(\d+):(\d{2})$/);
@@ -20,6 +23,13 @@ function niceDuration(hhmm: string, lang: 'en' | 'hi'): string {
 }
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const PUNCT = {
+  ok: 'bg-status-onTime/12 text-status-onTime',
+  warn: 'bg-status-minorDelay/12 text-status-minorDelay',
+  bad: 'bg-status-heavyDelay/12 text-status-heavyDelay',
+} as const;
+const punctTone = (n: number) => (n >= 7 ? 'ok' : n >= 4 ? 'warn' : 'bad');
 
 const TILE = {
   confirm: { bar: 'bg-status-onTime', text: 'text-status-onTime' },
@@ -55,17 +65,57 @@ function ClassTile({ c, active, onSelect, onHover }: { c: ClassAvailability; act
   );
 }
 
-export function TrainResultCard({ train, date, quota, weekday, fromNote, toNote, compare }: { train: AvailabilityTrain; date: string; quota: string; weekday: string; fromNote?: string; toNote?: string; compare?: { selected: boolean; disabled: boolean; onToggle: () => void } }) {
+// Horizontal strip with an edge fade + chevron while more classes are off-screen.
+function ClassStrip({ children, label }: { children: React.ReactNode; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    check();
+    el.addEventListener('scroll', check, { passive: true });
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', check);
+      ro.disconnect();
+    };
+  }, []);
+  return (
+    <div className="relative -mx-1 mt-3">
+      <div ref={ref} role="group" aria-label={label} className="flex gap-2 overflow-x-auto px-1 pb-1 no-scrollbar">
+        {children}
+      </div>
+      {more && (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-hidden
+          onClick={() => ref.current?.scrollBy({ left: ref.current.clientWidth * 0.7, behavior: 'smooth' })}
+          className="absolute inset-y-0 right-0 flex w-10 items-center justify-end bg-gradient-to-l from-surface-raised via-surface-raised/80 to-transparent pr-0.5"
+        >
+          <ChevronRight className="h-5 w-5 text-ink" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function TrainResultCard({ train, date, quota, weekday, fromNote, toNote, compare, onPickDate }: { train: AvailabilityTrain; date: string; quota: string; weekday: string; fromNote?: string; toNote?: string; compare?: { selected: boolean; disabled: boolean; onToggle: () => void }; onPickDate?: (iso: string) => void }) {
   const [openClass, setOpenClass] = useState<string | null>(null);
   const [showLast, setShowLast] = useState(false);
   const { t, lang } = useT();
   const localName = useStationName();
   const qc = useQueryClient();
   const { isFavorite, toggleFavorite } = useFavoritesStore();
+  const startBooking = usePendingBooking((s) => s.start);
   const fav = isFavorite(train.number);
   const overnight = hhmmToMin(train.arrival) < hhmmToMin(train.departure);
   const departed = train.departed;
   const tilesVisible = !departed || showLast;
+  const checkedAt = parseUpstreamTime(train.classes.find((c) => c.cls === openClass)?.cachedAt);
+  const book = PRIMARY_BOOKING.url({ from: train.from.code, to: train.to.code, date, train: train.number, cls: openClass ?? undefined, quota });
 
   const prefetch = (cls: string) =>
     qc.prefetchQuery({
@@ -109,6 +159,15 @@ export function TrainResultCard({ train, date, quota, weekday, fromNote, toNote,
                 })}
                 {train.hasPantry && <Utensils className="ml-1 h-3.5 w-3.5 text-ink-muted" aria-label={t('trains.pantry')} />}
               </div>
+              {train.punctuality && (
+                <p
+                  className={cn('mt-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-caption font-bold', PUNCT[punctTone(train.punctuality.overall)])}
+                  title={t('trains.punctualityHint')}
+                >
+                  {t('trains.punctuality', { n: train.punctuality.overall })}
+                  <span className="font-medium opacity-75">· RailYatri</span>
+                </p>
+              )}
             </div>
             <button
               onClick={() => toggleFavorite({ number: train.number, name: train.name })}
@@ -148,11 +207,11 @@ export function TrainResultCard({ train, date, quota, weekday, fromNote, toNote,
           )}
 
           {tilesVisible && train.classes.length > 0 && (
-            <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 no-scrollbar">
+            <ClassStrip label={t('trains.classesFor', { n: train.classes.length })}>
               {train.classes.map((c) => (
                 <ClassTile key={c.cls} c={c} active={openClass === c.cls} onHover={() => prefetch(c.cls)} onSelect={() => setOpenClass(openClass === c.cls ? null : c.cls)} />
               ))}
-            </div>
+            </ClassStrip>
           )}
           {tilesVisible && train.classes.length === 0 && <p className="mt-3 text-caption text-ink-muted">{t('trains.noClassData')}</p>}
 
@@ -177,28 +236,43 @@ export function TrainResultCard({ train, date, quota, weekday, fromNote, toNote,
 
           {tilesVisible && openClass && (
             <div className="mt-2 rounded-lg border border-ink/10 bg-surface/60 px-3 pb-3">
+              {checkedAt && <p className="pt-2.5 text-caption text-ink-muted">{t('trains.classChecked', { cls: openClass, age: formatAge(checkedAt, lang) })}</p>}
+              {!departed && <OtherDates train={train.number} from={train.from.code} to={train.to.code} cls={openClass} quota={quota} date={date} onPick={onPickDate} />}
               <TrendsPanel train={train.number} cls={openClass} quota={quota} date={date} />
             </div>
           )}
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-ink/20 pt-3">
+          {/* phones: Book spans the row, the rest sit two-up; wider: one wrapped row */}
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-dashed border-ink/20 pt-3 sm:flex sm:flex-wrap sm:items-center">
+            {!departed && (
+              <a
+                href={book}
+                onClick={() => startBooking({ trainNo: train.number, trainName: train.name, from: train.from.code, to: train.to.code, date, provider: PRIMARY_BOOKING.name })}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('trains.bookAria', { provider: PRIMARY_BOOKING.name })}
+                className="cta-lamp col-span-2 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3.5 text-body font-bold active:scale-[0.97]"
+              >
+                {t('trains.bookOn', { provider: PRIMARY_BOOKING.name })} <ArrowUpRight className="h-4 w-4" aria-hidden />
+              </a>
+            )}
             <Link
               href={`/track/${train.number}`}
               prefetch
               className={cn(
-                'inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3.5 text-body font-bold transition-transform',
-                departed ? 'cta-lamp' : 'border border-ink/40 bg-surface-elevated/70 hover:bg-surface-elevated active:scale-[0.97]',
+                'inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-caption font-bold transition-transform sm:px-3 sm:text-body',
+                departed ? 'cta-lamp col-span-2 sm:col-span-1' : 'border border-ink/40 bg-surface-elevated/70 hover:bg-surface-elevated active:scale-[0.97]',
               )}
             >
-              <Radio className="h-4 w-4" aria-hidden /> {departed ? t('trains.trackLive') : t('trains.liveStatus')}
+              <Radio className="h-4 w-4 shrink-0" aria-hidden /> {departed ? t('trains.trackLive') : t('trains.liveStatus')}
             </Link>
             {!departed && (
               <Link
                 href={`/track/${train.number}/seats?station=${train.from.code}&date=${date}`}
                 prefetch={false}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-ink/25 px-3.5 text-body font-semibold text-ink-muted transition-colors hover:text-ink active:scale-[0.97]"
+                className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-ink/25 px-2.5 text-caption font-semibold text-ink-muted transition-colors hover:text-ink active:scale-[0.97] sm:px-3 sm:text-body"
               >
-                <Armchair className="h-4 w-4" aria-hidden /> {t('trains.seats')}
+                <Armchair className="h-4 w-4 shrink-0" aria-hidden /> {t('trains.seats')}
               </Link>
             )}
             {compare && !departed && (
@@ -207,7 +281,7 @@ export function TrainResultCard({ train, date, quota, weekday, fromNote, toNote,
                 onClick={compare.onToggle}
                 disabled={compare.disabled && !compare.selected}
                 aria-pressed={compare.selected}
-                className={cn('inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 text-body font-semibold transition-colors disabled:opacity-40', compare.selected ? 'pill-on border-ink' : 'border-ink/25 text-ink-muted hover:text-ink')}
+                className={cn('inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-caption font-semibold transition-colors disabled:opacity-40 sm:px-3 sm:text-body', compare.selected ? 'pill-on border-ink' : 'border-ink/25 text-ink-muted hover:text-ink')}
               >
                 {t('split.compare')}
               </button>
@@ -217,18 +291,37 @@ export function TrainResultCard({ train, date, quota, weekday, fromNote, toNote,
                 type="button"
                 onClick={() => setShowLast((v) => !v)}
                 aria-expanded={showLast}
-                className="ml-auto inline-flex items-center gap-1 text-caption font-semibold text-ink-muted hover:text-ink"
+                className="col-span-2 inline-flex items-center gap-1 text-caption font-semibold text-ink-muted hover:text-ink sm:ml-auto"
               >
                 <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', showLast && 'rotate-180')} aria-hidden />
                 {showLast ? t('trains.hideLast') : t('trains.showLast')}
               </button>
             )}
             {!departed && train.classes.length > 0 && (
-              <span className="ml-auto flex items-center gap-1 text-caption text-ink-muted">
-                <ChevronDown className="h-3.5 w-3.5" aria-hidden /> {t('trains.tapClass')}
+              <span className="flex items-center justify-center gap-1 text-caption text-ink-muted sm:ml-auto">
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden /> {t('trains.tapClass')}
               </span>
             )}
           </div>
+          {!departed && (
+            <p className="mt-2 text-caption text-ink-muted">
+              {t('trains.alsoOn')}{' '}
+              {OTHER_BOOKING.map((p, i) => (
+                <span key={p.id}>
+                  {i > 0 && ' · '}
+                  <a
+                    href={p.url({ from: train.from.code, to: train.to.code, date, train: train.number, cls: openClass ?? undefined, quota })}
+                    onClick={() => startBooking({ trainNo: train.number, trainName: train.name, from: train.from.code, to: train.to.code, date, provider: p.name })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-ink underline decoration-ink/30 underline-offset-2 hover:decoration-ink"
+                  >
+                    {p.name}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useDialogFocus } from '@/lib/useDialogFocus';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { isoDate, isoToDate } from '@/lib/format';
@@ -14,11 +15,8 @@ export function DateCalendar({ value, min, max, maxDays, onPick, onClose }: { va
   const start = isoToDate(value);
   const [ym, setYm] = useState({ y: start.getUTCFullYear(), m: start.getUTCMonth() });
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialog, true, onClose);
 
   const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(lang === 'hi' ? 'hi-IN' : 'en-IN', { ...o, timeZone: 'UTC' });
   const monthLabel = fmt({ month: 'long', year: 'numeric' }).format(new Date(Date.UTC(ym.y, ym.m, 1)));
@@ -44,6 +42,7 @@ export function DateCalendar({ value, min, max, maxDays, onPick, onClose }: { va
     <>
       <div className="fixed inset-0 z-[74] bg-black/45 sm:bg-transparent" onClick={onClose} aria-hidden />
       <div
+        ref={dialog}
         role="dialog"
         aria-modal="true"
         aria-label={t('cal.title')}
@@ -88,6 +87,7 @@ export function DateCalendar({ value, min, max, maxDays, onPick, onClose }: { va
                   role="gridcell"
                   disabled={off}
                   aria-selected={on}
+                  data-autofocus={on || undefined}
                   aria-label={fmt({ weekday: 'long', day: 'numeric', month: 'long' }).format(isoToDate(iso))}
                   onClick={() => onPick(iso)}
                   className={cn(

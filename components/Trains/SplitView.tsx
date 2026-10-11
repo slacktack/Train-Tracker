@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { useDialogFocus } from '@/lib/useDialogFocus';
 import Link from 'next/link';
 import { ArrowUpRight, Radio, X } from 'lucide-react';
 import type { AvailabilityTrain, ClassAvailability } from '@/lib/sources/confirmtkt';
@@ -10,6 +11,7 @@ import { useT } from '@/lib/i18n/useT';
 import { useStationName } from '@/lib/i18n/stationNames';
 import { humanMinutes } from '@/lib/where-now';
 import { TrendsPanel } from './TrendsPanel';
+import { CONFIRMTKT, IRCTC } from '@/lib/booking';
 
 export interface SplitPanel {
   train: AvailabilityTrain;
@@ -34,14 +36,12 @@ const TONE = {
 } as const;
 const RISK = { tight: 'border-stamp text-stamp', ok: 'border-status-onTime text-status-onTime', long: 'border-ink/30 text-ink-muted' } as const;
 
-const dmy = (iso: string) => iso.split('-').reverse().join('-');
-
 function Column({ panel, quota, chosen, onChoose }: { panel: SplitPanel; quota: string; chosen: string | null; onChoose: (cls: string | null) => void }) {
   const { t, lang } = useT();
   const local = useStationName();
   const tr = panel.train;
   const sel = tr.classes.find((c) => c.cls === chosen) ?? null;
-  const confirmTkt = `https://www.confirmtkt.com/rbooking/trains/from/${tr.from.code}/to/${tr.to.code}/${dmy(panel.depIso)}`;
+  const confirmTkt = CONFIRMTKT.url({ from: tr.from.code, to: tr.to.code, date: panel.depIso, train: tr.number, cls: chosen ?? undefined, quota });
 
   return (
     <section className="flex min-w-0 flex-1 flex-col rounded-xl border border-ink/20 bg-surface-raised/90" aria-label={`${tr.number} ${tr.name}`}>
@@ -118,7 +118,7 @@ function Column({ panel, quota, chosen, onChoose }: { panel: SplitPanel; quota: 
         <a href={confirmTkt} target="_blank" rel="noopener noreferrer" className="cta-lamp inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-caption font-bold">
           {t('split.book')} <ArrowUpRight className="h-4 w-4" aria-hidden />
         </a>
-        <a href="https://www.irctc.co.in/nget/train-search" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-ink/30 px-3 text-caption font-semibold text-ink-muted hover:text-ink">
+        <a href={IRCTC.url({ from: tr.from.code, to: tr.to.code, date: panel.depIso })} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-ink/30 px-3 text-caption font-semibold text-ink-muted hover:text-ink">
           {t('split.irctc')} <ArrowUpRight className="h-4 w-4" aria-hidden />
         </a>
       </div>
@@ -133,15 +133,14 @@ export function SplitView({ panels, quota, connections, arrival, onClose }: { pa
   const [tab, setTab] = useState(0);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, []);
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialog, true, onClose);
 
   const fares = useMemo(() => panels.map((p, i) => p.train.classes.find((c) => c.cls === chosen[i])?.fare ?? null), [panels, chosen]);
   const total = fares.every((f) => f) ? fares.reduce<number>((a, b) => a + (b ?? 0), 0) : null;
@@ -150,6 +149,7 @@ export function SplitView({ panels, quota, connections, arrival, onClose }: { pa
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/55 sm:items-center sm:p-4" onClick={onClose}>
       <div
+        ref={dialog}
         role="dialog"
         aria-modal="true"
         aria-label={t('split.title')}
@@ -173,6 +173,7 @@ export function SplitView({ panels, quota, connections, arrival, onClose }: { pa
                 <span className={cn('rounded-md border px-1.5 py-0.5 text-caption font-bold', RISK[c.risk])}>{t(`trains.risk.${c.risk}` as 'trains.risk.ok')}</span>
               </li>
             ))}
+            <li className="mt-1.5 text-caption font-semibold text-ink-muted">{t('split.twoTickets')}</li>
           </ul>
         )}
 

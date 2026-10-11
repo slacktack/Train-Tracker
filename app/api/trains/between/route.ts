@@ -5,6 +5,7 @@ import { searchableStations } from '@/lib/sources/offline-near';
 import type { AvailabilityResult, AvailabilityTrain } from '@/lib/sources/confirmtkt';
 import { getAvailabilityBest, QUOTAS, Quota } from '@/lib/sources/confirmtkt';
 import { getStation } from '@/lib/sources/offline';
+import { getPunctuality, type Punctuality } from '@/lib/sources/railyatri';
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
@@ -24,6 +25,12 @@ export async function GET(req: NextRequest) {
     const typed = (raw ?? '').replace(/[^A-Za-z0-9\u0900-\u097F .'-]/g, '').slice(0, 40).trim();
     return { code: v, name: `${typed ? titleCase(typed) : st?.name ?? v} (all stations)` };
   };
+
+  // Best-effort extra: a slow or failing RailYatri never holds up or breaks the search.
+  const punctuality =
+    isCity(from) || isCity(to)
+      ? Promise.resolve<Record<string, Punctuality>>({})
+      : cached(`ry-otr:${from}:${to}:${date}`, 6 * 3600, () => getPunctuality(from, to, isoToDmy(date))).catch(() => ({}) as Record<string, Punctuality>);
 
   try {
     const result = await cached<AvailabilityResult>(`avail3:${from}:${to}:${date}:${quota}`, 120, async () => {
@@ -53,7 +60,17 @@ export async function GET(req: NextRequest) {
       }
       return { trains, quotas: found[0]?.quotas ?? [], fetchedAt: found[0]?.fetchedAt ?? null };
     });
-    return NextResponse.json({ from: named(from, sp.get('fromName')), to: named(to, sp.get('toName')), date, quota, ...result });
+    const ratings = await punctuality;
+    const withRating = (t: AvailabilityTrain): AvailabilityTrain => (ratings[t.number] ? { ...t, punctuality: ratings[t.number] } : t);
+    return NextResponse.json({
+      from: named(from, sp.get('fromName')),
+      to: named(to, sp.get('toName')),
+      date,
+      quota,
+      ...result,
+      trains: result.trains.map(withRating),
+      nearby: result.nearby?.map((n) => ({ ...n, train: withRating(n.train) })),
+    });
   } catch (err) {
     return upstreamFailure(err, 'trains-between');
   }

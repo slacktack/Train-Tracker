@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -290,6 +290,14 @@ export function TrackingScreen({ trainNumber }: { trainNumber: string }) {
   const { isFavorite, toggleFavorite } = useFavoritesStore();
   const hasAlarm = useAlarmStore((s) => s.alarms.some((a) => a.trainNumber === trainNumber && !a.firedAt));
   const pushRecent = useRecentsStore((s) => s.pushRecent);
+
+  // ?alarm=1 (from My Trips) opens the arrival alarm once the journey is known.
+  const alarmAsked = useRef(false);
+  useEffect(() => {
+    if (!journey || alarmAsked.current) return;
+    alarmAsked.current = true;
+    if (new URLSearchParams(window.location.search).has('alarm')) useAlarmUiStore.getState().setOpen(true);
+  }, [journey]);
 
   // Remember every viewed train so the search palette can offer quick picks.
   useEffect(() => {

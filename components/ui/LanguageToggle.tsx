@@ -4,11 +4,11 @@ import { Languages } from 'lucide-react';
 import { useT } from '@/lib/i18n/useT';
 import { cn } from '@/lib/cn';
 
-export function LanguageToggle({ className }: { className?: string }) {
+export function LanguageToggle({ className, compact = false }: { className?: string; compact?: boolean }) {
   const { lang, setLang, t } = useT();
   return (
     <div role="radiogroup" aria-label={t('language.label')} className={cn('glass flex items-center gap-0.5 rounded-pill p-0.5', className)}>
-      <Languages className="ml-2 mr-0.5 h-3.5 w-3.5 shrink-0 text-ink-muted" aria-hidden />
+      {!compact && <Languages className="ml-2 mr-0.5 h-3.5 w-3.5 shrink-0 text-ink-muted" aria-hidden />}
       {(['en', 'hi'] as const).map((l) => (
         <button
           key={l}

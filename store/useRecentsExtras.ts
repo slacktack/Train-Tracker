@@ -28,22 +28,57 @@ export const useRecentRoutesStore = create<RoutesStore>()(
 export interface RecentPnr {
   pnr: string;
   trainName?: string;
+  trainNo?: string;
+  // Journey date, YYYY-MM-DD; entries expire after it.
+  doj?: string;
+  from?: { code: string; name: string };
+  to?: { code: string; name: string };
+  boarding?: { code: string; name: string };
+  travelClass?: string;
+  savedAt?: number;
 }
 
 interface PnrStore {
   pnrs: RecentPnr[];
+  remember: boolean;
   push: (p: RecentPnr) => void;
   remove: (pnr: string) => void;
+  clear: () => void;
+  setRemember: (on: boolean) => void;
+  prune: () => void;
+}
+
+const UNDATED_TTL_MS = 30 * 86_400_000;
+const DAY_MS = 86_400_000;
+
+export const maskPnr = (pnr: string) => `••••••${pnr.slice(-4)}`;
+
+export function isPnrExpired(p: RecentPnr, now = Date.now()): boolean {
+  if (p.doj) return Date.parse(`${p.doj}T23:59:59+05:30`) + DAY_MS < now;
+  return now - (p.savedAt ?? now) > UNDATED_TTL_MS;
 }
 
 export const useRecentPnrStore = create<PnrStore>()(
   persist(
     (set) => ({
       pnrs: [],
-      push: (p) => set((s) => ({ pnrs: [p, ...s.pnrs.filter((x) => x.pnr !== p.pnr)].slice(0, 8) })),
+      remember: true,
+      push: (p) =>
+        set((s) => (s.remember ? { pnrs: [{ ...p, savedAt: Date.now() }, ...s.pnrs.filter((x) => x.pnr !== p.pnr)].slice(0, 8) } : s)),
       remove: (pnr) => set((s) => ({ pnrs: s.pnrs.filter((x) => x.pnr !== pnr) })),
+      clear: () => set({ pnrs: [] }),
+      setRemember: (on) => set((s) => ({ remember: on, pnrs: on ? s.pnrs : [] })),
+      prune: () => set((s) => ({ pnrs: s.pnrs.filter((x) => !isPnrExpired(x)) })),
     }),
-    { name: 'train-tracker-recent-pnrs' },
+    {
+      name: 'train-tracker-recent-pnrs',
+      version: 1,
+      migrate: (state) => {
+        const s = state as { pnrs?: RecentPnr[] };
+        return { remember: true, pnrs: (s.pnrs ?? []).map((p) => ({ ...p, savedAt: p.savedAt ?? Date.now() })) } as PnrStore;
+      },
+      onRehydrateStorage: () => (state) => state?.prune(),
+    },
   ),
 );
 

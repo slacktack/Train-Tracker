@@ -7,9 +7,11 @@ import { useT } from '@/lib/i18n/useT';
 import { useStationName } from '@/lib/i18n/stationNames';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
 import { useRecentsStore } from '@/store/useRecentsStore';
-import { routeKey, useRecentPnrStore, useRecentRoutesStore, useStationStore } from '@/store/useRecentsExtras';
+import { maskPnr, routeKey, useRecentPnrStore, useRecentRoutesStore, useStationStore } from '@/store/useRecentsExtras';
 import { useAlarmStore } from '@/store/useAlarmStore';
 import { EmptyState, GlassCard, PageHeader, PageShell } from '@/components/ui/kit';
+import { MyTrips } from '@/components/Trips/MyTrips';
+import { PendingBookingBanner } from '@/components/Trips/PendingBookingBanner';
 
 function Group({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
@@ -74,6 +76,8 @@ export function SavedScreen() {
   return (
     <PageShell>
       <PageHeader title={t('saved.title')} subtitle={t('saved.subtitle')} />
+      <PendingBookingBanner className="mt-4" />
+      <MyTrips />
       {total === 0 && <EmptyState title={t('saved.empty')} hint={t('saved.emptyHint')} />}
 
       {alarms.length > 0 && (
@@ -107,7 +111,7 @@ export function SavedScreen() {
       {pnrs.length > 0 && (
         <Group icon={<Ticket className="h-4 w-4" aria-hidden />} title={t('saved.pnrs')}>
           {pnrs.map((p) => (
-            <Row key={p.pnr} href={`/pnr/${p.pnr}`} title={p.pnr} sub={p.trainName} onRemove={() => removePnr(p.pnr)} removeLabel={rm} />
+            <Row key={p.pnr} href={`/pnr/${p.pnr}`} title={maskPnr(p.pnr)} sub={p.trainName} onRemove={() => removePnr(p.pnr)} removeLabel={rm} />
           ))}
         </Group>
       )}

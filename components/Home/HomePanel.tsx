@@ -5,11 +5,32 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight, RefreshCcw, SlidersHorizontal, Star, X } from 'lucide-react';
 import type { LiveTrain } from '@/types/train';
 import { cn } from '@/lib/cn';
+import { formatAge } from '@/lib/format';
 import { useT } from '@/lib/i18n/useT';
 import { useCountUp } from '@/lib/useCountUp';
 import { sortTrainTypes, trainTypeColor, trainTypeLabel } from '@/lib/train-type';
 import { DEFAULT_FILTERS, type MapFilters } from '@/components/Home/MapFilterBar';
 import type { SavedTrain } from '@/store/useFavoritesStore';
+
+export interface FeedMeta {
+  source: 'railjournal' | 'railradar' | null;
+  updatedAt: number;
+  // Served from this device after a failed fetch.
+  saved: boolean;
+}
+
+const SOURCE_LABEL = { railjournal: 'RailJournal', railradar: 'RailRadar' } as const;
+// Older than this, a "live" snapshot is called out even if the server did not flag it.
+const OLD_FEED_MS = 10 * 60_000;
+
+export function feedLine(feed: FeedMeta | null, stale: boolean, now: number, t: ReturnType<typeof useT>['t'], lang: 'en' | 'hi') {
+  if (!feed) return { text: '', old: stale };
+  const age = formatAge(feed.updatedAt, lang, now);
+  const old = stale || feed.saved || now - feed.updatedAt > OLD_FEED_MS;
+  const src = feed.source ? SOURCE_LABEL[feed.source] : '';
+  const text = feed.saved ? t('home.feedSaved', { age }) : old ? t('home.feedOld', { age }) : t('home.feedUpdated', { age });
+  return { text: src ? `${text} · ${src}` : text, old };
+}
 
 interface HomePanelProps {
   trains: LiveTrain[];
@@ -21,7 +42,8 @@ interface HomePanelProps {
   stale: boolean;
   favorites: SavedTrain[];
   onOpenTrain: (n: string) => void;
-  clock: string | null;
+  feed: FeedMeta | null;
+  now: number;
   hideTrigger?: boolean;
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -41,8 +63,9 @@ function LedReadout({ label, value, unit, tone = 'amber' }: { label: string; val
   );
 }
 
-function PanelBody({ trains, visible, filters, onFilters, onRefresh, refreshing, stale, favorites, onOpenTrain, clock }: HomePanelProps) {
+function PanelBody({ trains, visible, filters, onFilters, onRefresh, refreshing, stale, favorites, onOpenTrain, feed, now }: HomePanelProps) {
   const { t, lang } = useT();
+  const fresh = feedLine(feed, stale, now, t, lang);
   const total = trains.length;
   const shown = visible.length;
   const rolled = useCountUp(shown);
@@ -77,10 +100,6 @@ function PanelBody({ trains, visible, filters, onFilters, onRefresh, refreshing,
             </p>
           </div>
           <div className="flex items-center gap-1.5 pb-1">
-            <span className="flex items-center gap-1.5 text-[0.6875rem] text-white/50">
-              <span className={cn('h-1.5 w-1.5 rounded-full', stale ? 'bg-[#ff8a1f]' : 'bg-[#4ade80]')} aria-hidden />
-              {clock && <span className="led text-[0.95rem] text-[#ffb43a]/85">{clock}</span>}
-            </span>
             <button
               type="button"
               onClick={onRefresh}
@@ -91,6 +110,17 @@ function PanelBody({ trains, visible, filters, onFilters, onRefresh, refreshing,
             </button>
           </div>
         </div>
+        {fresh.text && (
+          <p className={cn('mt-2 flex items-center gap-1.5 text-[0.75rem] font-medium', fresh.old ? 'text-[#ffb43a]' : 'text-white/60')} role="status">
+            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', fresh.old ? 'bg-[#ff8a1f]' : 'bg-[#4ade80]')} aria-hidden />
+            <span className="min-w-0 break-words">{fresh.text}</span>
+            {fresh.old && (
+              <button type="button" onClick={onRefresh} className="ml-auto shrink-0 rounded-full bg-white/10 px-2 py-0.5 font-semibold text-[#ffb43a] hover:bg-white/15">
+                {t('common.retry')}
+              </button>
+            )}
+          </p>
+        )}
         <div className="mt-2.5 grid grid-cols-2 gap-x-4 border-t border-white/10 pt-2.5">
           <LedReadout label={t('home.movingShare')} value={`${stats.movingPct}`} unit="%" tone="green" />
           <LedReadout label={t('home.avgSpeed')} value={`${stats.avg}`} unit={t('common.kmh')} />

@@ -23,7 +23,7 @@ export function snapshotEnabled(): boolean {
 }
 
 // "2026-10-03 17:41:34" (IST) -> epoch ms
-function parseStamp(ts: string): number {
+export function parseStamp(ts: string): number {
   return Date.parse(ts.replace(' ', 'T') + '+05:30');
 }
 

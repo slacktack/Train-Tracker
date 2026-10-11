@@ -106,3 +106,21 @@ describe('empty routes', () => {
     expect(isNoTrains('Service unavailable')).toBe(false);
   });
 });
+
+describe('ConfirmTkt monthly availability', () => {
+  it('uses the current waitlist position and skips errored days', async () => {
+    const { parseMonthly } = await import('./confirmtkt');
+    const days = parseMonthly(
+      [
+        { SL: { Doj: '2026-10-25T00:00:00', CurrentStatus: 'RLWL62/WL46', Prediction: '78% Chance', ConfirmTktStatus: 'Confirm', CacheTime: '2026-10-11T20:50:07.001' } },
+        { SL: { Doj: '2026-10-26T00:00:00', CurrentStatus: 'CURR_AVL 17', Prediction: 'Available', ConfirmTktStatus: 'Confirm' } },
+        { SL: { Doj: '2026-10-27T00:00:00', Error: 'boom' } },
+      ],
+      'SL',
+    );
+    expect(days).toEqual([
+      { date: '2026-10-25', status: 'WL 46', prediction: '78% Chance', verdict: 'confirm', cachedAt: '2026-10-11T20:50:07.001' },
+      { date: '2026-10-26', status: 'AVL 17', prediction: '', verdict: 'confirm', cachedAt: null },
+    ]);
+  });
+});

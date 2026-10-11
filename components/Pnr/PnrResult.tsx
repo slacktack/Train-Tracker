@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Armchair, ArrowLeft, Ban, Clock, Radio, RefreshCcw, Route, Share2, Train } from 'lucide-react';
+import { Armchair, ArrowLeft, Ban, Check, Clock, Radio, RefreshCcw, Route, Share2, Train, Utensils } from 'lucide-react';
+import { ecateringUrl } from '@/lib/booking';
 import { ApiError, getJSON, type PnrResult } from '@/lib/client-api';
 import { cn } from '@/lib/cn';
 import { formatDay, seatTone, toIsoDate } from '@/lib/format';
 import { useRecentPnrStore } from '@/store/useRecentsExtras';
+import { usePendingBooking } from '@/store/usePendingBooking';
 import { Chip, EmptyState, ErrorState, GlassCard, PageShell, SectionLabel, Skeleton } from '@/components/ui/kit';
 import { useT } from '@/lib/i18n/useT';
 import { useGoBack } from '@/lib/useGoBack';
@@ -43,20 +45,47 @@ export function PnrResultScreen({ pnr }: { pnr: string }) {
   });
 
   useEffect(() => {
-    if (data) push({ pnr, trainName: data.trainName });
+    if (!data) return;
+    const pending = usePendingBooking.getState().pending;
+    if (pending?.trainNo === data.trainNo) usePendingBooking.getState().dismiss();
+    push({
+      pnr,
+      trainName: data.trainName,
+      trainNo: data.trainNo,
+      doj: toIsoDate(data.doj) ?? undefined,
+      from: data.from,
+      to: data.to,
+      boarding: data.boarding,
+      travelClass: data.travelClass,
+    });
   }, [data, pnr, push]);
 
+  const iso = toIsoDate(data?.doj);
+  const [shared, setShared] = useState(false);
+
+  // Shares the trip, not the PNR: the lookup link would reveal it.
   const share = async () => {
-    const url = window.location.href;
+    if (!data) return;
+    const statuses = data.passengers.map((p) => (p.currentStatus || p.bookingStatus).split(/[\s/]/)[0]).filter(Boolean);
+    const text = [
+      `${data.trainNo} ${data.trainName}`,
+      `${iso ? formatDay(iso, lang) : data.doj} · ${data.boarding.code || data.from.code} ${data.departure || ''} → ${data.to.code} ${data.arrival || ''}`.replace(/\s+/g, ' '),
+      statuses.length ? `${t('pnr.status')}: ${statuses.join(', ')}` : '',
+      `${t('pnr.trackTrain')}: ${window.location.origin}/track/${data.trainNo}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
     try {
-      if (navigator.share) await navigator.share({ title: `PNR ${pnr}`, url });
-      else await navigator.clipboard.writeText(url);
+      if (navigator.share) await navigator.share({ title: `${data.trainNo} ${data.trainName}`, text });
+      else {
+        await navigator.clipboard.writeText(text);
+        setShared(true);
+        setTimeout(() => setShared(false), 2500);
+      }
     } catch {
       // user cancelled
     }
   };
-
-  const iso = toIsoDate(data?.doj);
 
   return (
     <PageShell>
@@ -65,9 +94,12 @@ export function PnrResultScreen({ pnr }: { pnr: string }) {
           <ArrowLeft className="h-4 w-4" aria-hidden /> {t('common.back')}
         </button>
         <div className="flex items-center gap-1">
-          <button onClick={share} aria-label={t('common.share')} className="glass flex h-10 w-10 items-center justify-center rounded-full">
-            <Share2 className="h-4 w-4" aria-hidden />
-          </button>
+          {data && (
+            <button onClick={share} aria-label={t('pnr.shareTrip')} title={t('pnr.shareHint')} className="glass flex h-10 w-10 items-center justify-center rounded-full">
+              {shared ? <Check className="h-4 w-4 text-status-onTime" aria-hidden /> : <Share2 className="h-4 w-4" aria-hidden />}
+            </button>
+          )}
+          <span className="sr-only" aria-live="polite">{shared ? t('pnr.copied') : ''}</span>
           <button onClick={() => refetch()} aria-label={t('common.refresh')} className="glass flex h-10 w-10 items-center justify-center rounded-full">
             <RefreshCcw className={cn('h-4 w-4', isFetching && 'animate-spin')} aria-hidden />
           </button>
@@ -180,6 +212,13 @@ export function PnrResultScreen({ pnr }: { pnr: string }) {
                     <Armchair className="h-3.5 w-3.5" aria-hidden /> {t('pnr.coachSeats')}
                   </Chip>
                 </Link>
+              )}
+              {!data.cancelled && (
+                <a href={ecateringUrl(data.trainNo, data.boarding.code || data.from.code)} target="_blank" rel="noopener noreferrer" className="contents">
+                  <Chip className="px-3 py-2">
+                    <Utensils className="h-3.5 w-3.5" aria-hidden /> {t('trip.food')}
+                  </Chip>
+                </a>
               )}
               {iso && (
                 <Link href={`/trains?from=${data.from.code}&to=${data.to.code}&date=${iso}`} className="contents">

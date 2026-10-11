@@ -92,3 +92,30 @@ export function seatTone(status: string): 'ok' | 'warn' | 'bad' | 'none' {
   if (v.includes('WL') || v.startsWith('WAIT') || v.startsWith('CAN') || v.startsWith('REGRET')) return 'bad';
   return 'none';
 }
+
+/** "just now" / "4 min ago" / "2 h ago" / "Sat, 10 Oct". */
+export function formatAge(atMs: number | null | undefined, lang: L = 'en', now = Date.now()): string {
+  if (!atMs || !Number.isFinite(atMs)) return '';
+  const min = Math.max(0, Math.round((now - atMs) / 60_000));
+  if (min < 1) return lang === 'hi' ? 'अभी' : 'just now';
+  if (min < 60) return lang === 'hi' ? `${min} मिनट पहले` : `${min} min ago`;
+  const h = Math.round(min / 60);
+  if (h < 24) return lang === 'hi' ? `${h} घंटे पहले` : `${h} h ago`;
+  return formatDay(new Date(atMs + IST_MS).toISOString().slice(0, 10), lang);
+}
+
+/** Compact age for tight chips: "now", "4m", "2h". */
+export function formatAgeShort(atMs: number | null | undefined, now = Date.now()): string {
+  if (!atMs || !Number.isFinite(atMs)) return '';
+  const min = Math.max(0, Math.round((now - atMs) / 60_000));
+  if (min < 1) return 'now';
+  return min < 60 ? `${min}m` : `${Math.round(min / 60)}h`;
+}
+
+// ConfirmTkt cache stamps carry no zone and are IST.
+export function parseUpstreamTime(v: string | null | undefined): number | null {
+  if (!v) return null;
+  const zoned = /[zZ]|[+-]\d{2}:?\d{2}$/.test(v);
+  const ms = Date.parse(zoned ? v : `${v}+05:30`);
+  return Number.isFinite(ms) ? ms : null;
+}

@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ArrowUpDown, Clock, History, Search, X } from 'lucide-react';
+import { ArrowUpDown, Clock, History, RefreshCcw, Search, X } from 'lucide-react';
 import { ApiError, getJSON, type BetweenResponse } from '@/lib/client-api';
 import { cn } from '@/lib/cn';
-import { durationToMin, formatDay, hhmmToMin, isoDate, isoToDate } from '@/lib/format';
+import { durationToMin, formatAge, formatDay, hhmmToMin, isoDate, isoToDate, parseUpstreamTime } from '@/lib/format';
 import { useStationIndex } from '@/lib/useStationIndex';
 import { routeKey, useRecentRoutesStore } from '@/store/useRecentsExtras';
 import { DateStrip } from '@/components/Search/DateStrip';
@@ -19,6 +19,7 @@ import { SplitView } from './SplitView';
 import { ComboList } from './ComboList';
 import { anchorOf } from '@/lib/cities';
 import { RoutePlan } from './RoutePlan';
+import { PendingBookingBanner } from '@/components/Trips/PendingBookingBanner';
 import { Plus } from 'lucide-react';
 import { Columns2 } from 'lucide-react';
 import type { AlternativesResponse } from '@/lib/combos-types';
@@ -177,17 +178,21 @@ export function TrainsScreen() {
   const upcoming = useMemo(() => trains.filter((x) => !x.departed), [trains]);
   const gone = useMemo(() => trains.filter((x) => x.departed), [trains]);
   const weekday = WEEKDAYS[isoToDate(urlDate).getUTCDay()];
+  const goDate = (iso: string) => {
+    setDate(iso);
+    router.push(`/trains?from=${urlFrom}&to=${urlTo}${urlVia.length ? `&via=${urlVia.join(',')}` : ''}&date=${iso}&quota=${urlQuota}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const nextDay = () => {
     const d = isoToDate(urlDate);
     d.setUTCDate(d.getUTCDate() + 1);
-    const iso = d.toISOString().slice(0, 10);
-    setDate(iso);
-    router.push(`/trains?from=${urlFrom}&to=${urlTo}${urlVia.length ? `&via=${urlVia.join(',')}` : ''}&date=${iso}&quota=${urlQuota}`);
+    goDate(d.toISOString().slice(0, 10));
   };
 
   return (
     <PageShell>
       <PageHeader title={t('trains.title')} subtitle={t('trains.subtitle')} />
+      <PendingBookingBanner className="mb-4" />
 
       <GlassCard strong className="relative z-20 space-y-4 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -333,6 +338,30 @@ export function TrainsScreen() {
             </div>
           )}
 
+          {data && data.trains.length > 0 && (
+            <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-ink-muted" role="status">
+              <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1">
+                {data.fetchedAt ? t('trains.checkedAt', { age: formatAge(parseUpstreamTime(data.fetchedAt), lang) }) : t('trains.checkedUnknown')} · {t('trains.estimateNote')}
+              </span>
+              <button type="button" onClick={() => refetch()} disabled={isFetching} className="flex min-h-9 items-center gap-1 rounded-lg px-2 font-semibold text-ink hover:bg-ink/[0.05] disabled:opacity-50">
+                <RefreshCcw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} aria-hidden /> {t('common.refresh')}
+              </button>
+            </p>
+          )}
+          {data && data.trains.length > 0 && (
+            <details className="mb-3 rounded-lg border border-ink/10 px-3 py-2 text-caption text-ink-muted">
+              <summary className="cursor-pointer font-semibold text-ink">{t('glossary.title')}</summary>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+                {(['avl', 'wl', 'rac', 'cnf', 'chance', 'tq', 'chart'] as const).map((k) => (
+                  <div key={k} className="contents">
+                    <dt className="font-bold text-ink">{t(`glossary.${k}.term` as 'glossary.avl.term')}</dt>
+                    <dd>{t(`glossary.${k}` as 'glossary.avl')}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          )}
           {isLoading && <ResultSkeleton label={t('common.loading')} />}
           {error && !data && <ErrorState message={error instanceof ApiError ? error.message : t('common.somethingWrong')} provider={error instanceof ApiError ? error.provider : undefined} onRetry={() => refetch()} />}
           {data && trains.length === 0 && !(data.nearby?.length) && !autoConnect && (
@@ -360,7 +389,7 @@ export function TrainsScreen() {
           )}
           <div className={cn('space-y-3.5 transition-opacity', isFetching && !isLoading && 'opacity-80')}>
             {upcoming.map((tr) => (
-              <TrainResultCard key={tr.number} train={tr} date={active.date} quota={active.quota} weekday={weekday} compare={compareProps(tr.number)} />
+              <TrainResultCard key={tr.number} train={tr} date={active.date} quota={active.quota} weekday={weekday} compare={compareProps(tr.number)} onPickDate={goDate} />
             ))}
             {data && trains.length > 0 && upcoming.length === 0 && (
               <EmptyState title={t('trains.noneUpcoming')} hint={t('trains.noneUpcomingHint')} />
@@ -379,7 +408,7 @@ export function TrainsScreen() {
                 {showDeparted && (
                   <div className="space-y-3.5">
                     {gone.map((tr) => (
-                      <TrainResultCard key={tr.number} train={tr} date={active.date} quota={active.quota} weekday={weekday} compare={compareProps(tr.number)} />
+                      <TrainResultCard key={tr.number} train={tr} date={active.date} quota={active.quota} weekday={weekday} compare={compareProps(tr.number)} onPickDate={goDate} />
                     ))}
                   </div>
                 )}

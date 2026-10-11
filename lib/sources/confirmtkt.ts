@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { fetchJson, UpstreamError } from './http';
 import { getStation } from './offline';
+import type { Punctuality } from './railyatri';
 
 const CHROME_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36';
@@ -35,6 +36,8 @@ export interface AvailabilityTrain {
   classes: ClassAvailability[];
   /** Ways to get a seat when the direct ticket is waitlisted: split the ticket, or board nearby. */
   alternates?: SeatAlternate[];
+  // On-time rating from RailYatri, merged in by the route.
+  punctuality?: Punctuality;
 }
 
 export interface AltSegment {
@@ -113,7 +116,7 @@ export function humanizeStatus(raw: string): string {
   if (/chart\s*prepared/i.test(v)) return 'Chart prepared';
   let m = v.match(/^CURR_AVL\s*-?\s*(\d+)/i);
   if (m) return `AVL ${Number(m[1])}`;
-  m = v.match(/^(RLWL|GNWL|PQWL|RSWL|TQWL|RLGN|CKWL)\s*(\d+)/i);
+  m = v.match(/^(RLWL|GNWL|PQWL|RSWL|TQWL|RLGN|CKWL|WL)\s*(\d+)/i);
   if (m) return `WL ${Number(m[2])}`;
   if (/^not available$/i.test(v) || /^regret/i.test(v)) return 'Not available';
   return v.replace(/_/g, ' ').replace(/\s+/g, ' ');
@@ -539,4 +542,58 @@ export async function getAvailabilityBest(opts: { from: string; to: string; date
     if (err instanceof UpstreamError && isNoTrains(err.message)) return { trains: [], quotas: [...QUOTAS], fetchedAt: null };
     throw err;
   }
+}
+
+// ─── one train/class over the next 31 days ───────────────────────────────────
+
+export interface DayAvailability {
+  date: string;
+  status: string;
+  prediction: string;
+  verdict: ClassAvailability['verdict'];
+  cachedAt: string | null;
+}
+
+interface RawMonthDay {
+  Doj?: string;
+  CurrentStatus?: string;
+  Prediction?: string;
+  ConfirmTktStatus?: string;
+  CacheTime?: string;
+  Error?: string | null;
+}
+
+export function parseMonthly(json: unknown, cls: string): DayAvailability[] {
+  if (!Array.isArray(json)) return [];
+  const out: DayAvailability[] = [];
+  for (const row of json as Array<Record<string, RawMonthDay>>) {
+    const d = row?.[cls];
+    const date = d?.Doj?.slice(0, 10);
+    if (!d || !date || d.Error) continue;
+    // "RLWL62/WL46": the part after the slash is the current position.
+    const current = (d.CurrentStatus ?? '').split('/').pop() ?? '';
+    const c = mapClass(cls, { TravelClass: cls, AvailabilityDisplayName: current, Availability: d.CurrentStatus, Prediction: d.Prediction, ConfirmTktStatus: d.ConfirmTktStatus, CacheTime: d.CacheTime });
+    out.push({ date, status: c.status, prediction: c.prediction, verdict: c.verdict, cachedAt: c.cachedAt });
+  }
+  return out;
+}
+
+/** Dates are DD-MM-YYYY. */
+export async function getMonthlyAvailability(opts: { train: string; from: string; to: string; date: string; cls: string; quota: string }): Promise<DayAvailability[]> {
+  const qs = new URLSearchParams({
+    source: opts.from,
+    destination: opts.to,
+    doj: opts.date,
+    travelclasses: opts.cls,
+    quota: opts.quota,
+    enableTG: 'false',
+    tGPlan: '',
+    showTGPrediction: 'false',
+    email: '',
+  });
+  const json = await fetchJson<unknown>('confirmtkt', `https://api.confirmtkt.com/api/trains/${opts.train}/monthlyavailability?${qs}`, {
+    headers: { 'User-Agent': CHROME_UA, Accept: 'application/json', Origin: 'https://www.confirmtkt.com' },
+    timeoutMs: 12_000,
+  });
+  return parseMonthly(json, opts.cls);
 }

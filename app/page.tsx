@@ -7,7 +7,8 @@ import { LiveTrain, StationGroup } from '@/types/train';
 import { LiveMap } from '@/components/Home/LiveMap';
 import { TrainDetailCard } from '@/components/Home/TrainDetailCard';
 import { RefreshCcw, Search, TrainFront } from 'lucide-react';
-import { HomePanel } from '@/components/Home/HomePanel';
+import { HomePanel, feedLine, type FeedMeta } from '@/components/Home/HomePanel';
+import { formatAgeShort } from '@/lib/format';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { LanguageToggle } from '@/components/ui/LanguageToggle';
 import { useT } from '@/lib/i18n/useT';
@@ -20,15 +21,6 @@ import { useFavoritesStore } from '@/store/useFavoritesStore';
 
 const POLL_INTERVAL_MS = 30_000;
 const CLOCK_TICK_MS = 30_000;
-
-function formatUpdated(date: Date): string {
-  return date.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'Asia/Kolkata',
-  });
-}
 
 function matchesFilters(t: LiveTrain, f: MapFilters): boolean {
   if (f.types.length > 0 && !f.types.includes(t.type)) return false;
@@ -90,7 +82,7 @@ export default function HomePage() {
       return !v;
     });
   }, []);
-  const { t } = useT();
+  const { t, lang } = useT();
   const [selected, setSelected] = useState<LiveTrain | null>(null);
   const [selectedStation, setSelectedStation] = useState<StationGroup | null>(null);
   const [filters, setFilters] = useState<MapFilters>(DEFAULT_FILTERS);
@@ -103,10 +95,10 @@ export default function HomePage() {
   const { favorites } = useFavoritesStore();
   const [refreshing, setRefreshing] = useState(false);
 
-  const [istNow, setIstNow] = useState<Date | null>(null);
+  const [feed, setFeed] = useState<FeedMeta | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    setIstNow(new Date());
-    const id = setInterval(() => setIstNow(new Date()), CLOCK_TICK_MS);
+    const id = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
     return () => clearInterval(id);
   }, []);
 
@@ -115,8 +107,11 @@ export default function HomePage() {
       const res = await fetch('/api/active-trains');
       if (!res.ok) throw new Error(`feed ${res.status}`);
       const json = await res.json();
+      const updatedAt = typeof json.updatedAt === 'number' ? json.updatedAt : Date.now();
+      setFeed({ source: json.source ?? null, updatedAt, saved: false });
+      setNow(Date.now());
       try {
-        localStorage.setItem('tt-feed-v1', JSON.stringify({ at: Date.now(), trains: json.trains ?? [] }));
+        localStorage.setItem('tt-feed-v1', JSON.stringify({ at: updatedAt, source: json.source ?? null, trains: json.trains ?? [] }));
       } catch {
         // storage full: the live view still works
       }
@@ -127,9 +122,10 @@ export default function HomePage() {
     } catch {
       setError(true);
       try {
-        const saved = JSON.parse(localStorage.getItem('tt-feed-v1') ?? 'null') as { at: number; trains: LiveTrain[] } | null;
+        const saved = JSON.parse(localStorage.getItem('tt-feed-v1') ?? 'null') as { at: number; source?: FeedMeta['source']; trains: LiveTrain[] } | null;
         if (saved && saved.trains.length > 0) {
           setTrains((cur) => (cur.length > 0 ? cur : saved.trains));
+          setFeed((cur) => (cur ? { ...cur, saved: true } : { source: saved.source ?? null, updatedAt: saved.at, saved: true }));
           setStale(true);
         }
       } catch {
@@ -156,6 +152,8 @@ export default function HomePage() {
     const fresh = trains.find((t) => t.n === sel.n);
     if (fresh) setSelected(fresh);
   }, [trains]);
+
+  const fresh = feedLine(feed, stale, now, t, lang);
 
   // Filtered view feeds the map + snapshot; the raw feed stays for counts.
   const visibleTrains = useMemo(
@@ -193,7 +191,7 @@ export default function HomePage() {
       <header className={`absolute inset-x-0 top-[max(1rem,env(safe-area-inset-top))] z-20 flex flex-col items-center gap-1x px-2x sm:px-3x ${selected || selectedStation ? 'md:pl-[33.5rem]' : 'md:pl-[5rem]'} transition-[padding] duration-300 ${panelCollapsed ? 'md:pr-[3.5rem]' : 'md:pr-[24.5rem]'}`}>
         <div className="glass-strong flex w-full max-w-3xl flex-col gap-1x rounded-card px-2x py-1x xl:flex-row xl:items-center xl:gap-2x xl:py-1.5x">
           <div className="flex items-center gap-2x">
-            <div className="flex shrink-0 items-center gap-1.5x">
+            <div className="hidden shrink-0 items-center gap-1.5x sm:flex">
               <span className="flex h-9 w-9 items-center justify-center rounded-pill bg-accent/15 shadow-glow">
                 <TrainFront className="h-4 w-4 text-accent" aria-hidden />
               </span>
@@ -207,11 +205,13 @@ export default function HomePage() {
               {count !== null && (
                 <button
                   onClick={refreshNow}
-                  aria-label={t('home.refreshFeed')}
-                  className="flex shrink-0 items-center gap-1x rounded-pill border border-status-onTime/30 bg-status-onTime/10 px-2x py-1x transition-transform active:scale-95"
+                  aria-label={`${t('home.refreshFeed')}. ${fresh.text}`}
+                  className={`flex shrink-0 items-center gap-1x rounded-pill border px-2x py-1x transition-transform active:scale-95 ${fresh.old ? 'border-status-minorDelay/40 bg-status-minorDelay/10' : 'border-status-onTime/30 bg-status-onTime/10'}`}
                 >
                   {refreshing ? (
                     <RefreshCcw className="h-3.5 w-3.5 animate-spin text-status-onTime" aria-hidden />
+                  ) : fresh.old ? (
+                    <span className="h-1.5 w-1.5 rounded-full bg-status-minorDelay" aria-hidden />
                   ) : (
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-onTime opacity-75" />
@@ -221,10 +221,11 @@ export default function HomePage() {
                   <span className="font-display text-subhead leading-none tabular-nums">
                     {new Intl.NumberFormat('en-IN').format(count)}
                   </span>
+                  {feed && <span className="text-[0.6875rem] font-semibold leading-none text-ink-muted">{formatAgeShort(feed.updatedAt, now)}</span>}
                 </button>
               )}
-              <LanguageToggle />
-              <ThemeToggle />
+              <LanguageToggle compact />
+              <ThemeToggle compact />
             </div>
           </div>
 
@@ -257,7 +258,8 @@ export default function HomePage() {
         stale={stale}
         favorites={favorites}
         onOpenTrain={(n) => router.push(`/track/${n}`)}
-        clock={istNow ? formatUpdated(istNow) : null}
+        feed={feed}
+        now={now}
         hideTrigger={!!(selected || selectedStation)}
         collapsed={panelCollapsed}
         onToggleCollapsed={togglePanel}

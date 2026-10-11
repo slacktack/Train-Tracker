@@ -2,7 +2,7 @@ import { ActiveTrain, LiveJourney, LiveLocation, SearchResult, Station } from '@
 import { searchLocalTrains, TRAINS_DB } from '@/lib/trains-db';
 import { getCached, setCached } from '@/lib/redis-cache';
 import { getRadarSnapshot } from '@/lib/sources/railradar';
-import { getRjSnapshot } from '@/lib/sources/rj-snapshot';
+import { getRjSnapshot, parseStamp } from '@/lib/sources/rj-snapshot';
 import { mapRjRows } from '@/lib/sources/rj-map';
 import { projectRows } from '@/lib/sources/projection';
 import { searchOfflineTrains, stationCoordMap } from '@/lib/sources/offline';
@@ -178,7 +178,7 @@ export async function getCoachChart(trainNo: string, boardingStation: string, da
   };
 }
 
-let feedCache: { trains: ActiveTrain[]; timestamp: string; fetchedAt: number } | null = null;
+let feedCache: { trains: ActiveTrain[]; timestamp: string; fetchedAt: number; dataAt: number } | null = null;
 let feedIsStale = false;
 
 export function isFeedStale(): boolean {
@@ -191,6 +191,11 @@ export function currentFeedSource(): FeedSource {
   return feedSource;
 }
 
+// When the upstream snapshot was produced, epoch ms.
+export function feedUpdatedAt(): number | null {
+  return feedCache?.dataAt ?? null;
+}
+
 /** Open CDN snapshot first (real GPS/speed); RailRadar's budgeted, schedule-projected snapshot as fallback. */
 export async function getActiveTrains(force = false): Promise<ActiveTrain[]> {
   const now = Date.now();
@@ -198,14 +203,14 @@ export async function getActiveTrains(force = false): Promise<ActiveTrain[]> {
 
   const rj = await getRjSnapshot();
   if (rj) {
-    feedCache = { trains: mapRjRows(rj.rows, now), timestamp: rj.timestamp, fetchedAt: now };
+    feedCache = { trains: mapRjRows(rj.rows, now), timestamp: rj.timestamp, fetchedAt: now, dataAt: parseStamp(rj.timestamp) || rj.fetchedAt };
     feedIsStale = false;
     feedSource = 'railjournal';
     return feedCache.trains;
   }
 
   const { snapshot, stale } = await getRadarSnapshot();
-  feedCache = { trains: projectRows(snapshot.rows, snapshot.fetchedAt, now), timestamp: snapshot.timestamp, fetchedAt: now };
+  feedCache = { trains: projectRows(snapshot.rows, snapshot.fetchedAt, now), timestamp: snapshot.timestamp, fetchedAt: now, dataAt: snapshot.fetchedAt };
   feedIsStale = stale;
   feedSource = 'railradar';
   return feedCache.trains;

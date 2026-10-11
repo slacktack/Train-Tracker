@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { currentFeedSource, getActiveTrains, isFeedStale } from '@/lib/railjournal';
+import { currentFeedSource, feedUpdatedAt, getActiveTrains, isFeedStale } from '@/lib/railjournal';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +16,7 @@ export async function GET() {
       count: trains.length,
       stale: isFeedStale(),
       source: currentFeedSource(),
+      updatedAt: feedUpdatedAt(),
       trains: trains.map((t) => ({
         n: t.train_no,
         name: t.train_name,

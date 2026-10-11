@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { useDialogFocus } from '@/lib/useDialogFocus';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Radio, X } from 'lucide-react';
@@ -34,15 +35,14 @@ export function TrainSeatsSheet({ train, onClose }: { train: SheetTrain; onClose
   const [quota, setQuota] = useState<(typeof QUOTAS)[number]>('GN');
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, []);
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialog, true, onClose);
 
   const schedule = useQuery({
     queryKey: ['schedule', train.number],
@@ -74,6 +74,7 @@ export function TrainSeatsSheet({ train, onClose }: { train: SheetTrain; onClose
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/55 sm:items-center sm:p-4" onClick={onClose}>
       <div
+        ref={dialog}
         role="dialog"
         aria-modal="true"
         aria-label={t('sheet.title')}

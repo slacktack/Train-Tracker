@@ -10,8 +10,26 @@ const OPTIONS: Array<{ key: ThemePreference; label: string; icon: typeof Sun }> 
   { key: 'dark', label: 'Dark mode', icon: Moon },
 ];
 
-export function ThemeToggle() {
+export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const { preference, setPreference } = useTimeTheme();
+
+  // One button that cycles, for headers too narrow for all three.
+  if (compact) {
+    const i = Math.max(0, OPTIONS.findIndex((o) => o.key === preference));
+    const { icon: Icon, label } = OPTIONS[i];
+    const next = OPTIONS[(i + 1) % OPTIONS.length];
+    return (
+      <button
+        type="button"
+        onClick={() => setPreference(next.key)}
+        aria-label={`Theme: ${label}. Switch to ${next.label}`}
+        title={label}
+        className="glass flex h-9 w-9 shrink-0 items-center justify-center rounded-pill text-accent"
+      >
+        <Icon className="h-4 w-4" aria-hidden />
+      </button>
+    );
+  }
 
   return (
     <div
