@@ -3,8 +3,9 @@
 import { QueryClient, QueryClientProvider, dehydrate, hydrate } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-const KEY = 'tt-query-cache-v1';
-const KEEP = new Set(['journey', 'board', 'between', 'pnr', 'schedule', 'seats', 'trends', 'train-photo', 'coach-summary']);
+// v1 also held PNR results with passenger details; PNRs are never persisted now.
+const KEY = 'tt-query-cache-v2';
+const KEEP = new Set(['journey', 'board', 'between', 'schedule', 'seats', 'trends', 'train-photo', 'coach-summary']);
 const MAX_AGE_MS = 24 * 3600_000;
 const MAX_BYTES = 2_500_000;
 
@@ -18,6 +19,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
+      localStorage.removeItem('tt-query-cache-v1');
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const saved = JSON.parse(raw) as { at: number; state: Parameters<typeof hydrate>[1] };

@@ -18,6 +18,9 @@ function getClient(): Redis | null {
   return redis;
 }
 
+// Keys can carry identifiers; log only the namespace.
+const keyLabel = (key: string) => `${key.split(':')[0]}:*`;
+
 export async function getCached<T>(key: string): Promise<T | null> {
   const client = getClient();
   if (client) {
@@ -25,7 +28,7 @@ export async function getCached<T>(key: string): Promise<T | null> {
       const value = await client.get<T>(key);
       return value ?? null;
     } catch (e) {
-      console.warn(`[redis-cache] get failed for ${key}:`, e);
+      console.warn(`[redis-cache] get failed for ${keyLabel(key)}:`, e);
       return null;
     }
   }
@@ -44,7 +47,7 @@ export async function setCached<T>(key: string, value: T, ttlSeconds: number): P
     try {
       await client.set(key, value, { ex: ttlSeconds });
     } catch (e) {
-      console.warn(`[redis-cache] set failed for ${key}:`, e);
+      console.warn(`[redis-cache] set failed for ${keyLabel(key)}:`, e);
     }
     return;
   }
