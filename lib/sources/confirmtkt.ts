@@ -114,7 +114,7 @@ export function humanizeStatus(raw: string): string {
   if (/train\s*departed/i.test(v)) return 'Departed';
   if (/no more booking|booking closed/i.test(v)) return 'Booking closed';
   if (/chart\s*prepared/i.test(v)) return 'Chart prepared';
-  let m = v.match(/^CURR_AVL\s*-?\s*(\d+)/i);
+  let m = v.match(/^(?:CURR_AVL|AVAILABLE)\s*-?\s*(\d+)/i);
   if (m) return `AVL ${Number(m[1])}`;
   m = v.match(/^(RLWL|GNWL|PQWL|RSWL|TQWL|RLGN|CKWL|WL)\s*(\d+)/i);
   if (m) return `WL ${Number(m[2])}`;

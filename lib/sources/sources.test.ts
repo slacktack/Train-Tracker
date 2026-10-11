@@ -124,3 +124,11 @@ describe('ConfirmTkt monthly availability', () => {
     ]);
   });
 });
+
+describe('humanizeStatus availability forms', () => {
+  it('reads AVAILABLE-0015 as AVL 15', async () => {
+    const { humanizeStatus } = await import('./confirmtkt');
+    expect(humanizeStatus('AVAILABLE-0015')).toBe('AVL 15');
+    expect(humanizeStatus('CURR_AVL-0017')).toBe('AVL 17');
+  });
+});
